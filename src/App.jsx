@@ -112,6 +112,7 @@ const categories = [
 
 const STORAGE_KEY = "kite_paklijst_v1";
 const PHOTOS_KEY = "kite_paklijst_photos_v1";
+const OUTFITS_KEY = "kite_paklijst_outfits_v1";
 
 export default function App() {
   const [checked, setChecked] = useState({});
@@ -121,6 +122,9 @@ export default function App() {
   const [proofModal, setProofModal] = useState(null);
   const [toast, setToast] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
+  const [outfits, setOutfits] = useState([]);
+  const [outfitBuilder, setOutfitBuilder] = useState(null);
+  const [viewingOutfit, setViewingOutfit] = useState(null);
   const listRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -131,6 +135,8 @@ export default function App() {
       if (saved) setChecked(JSON.parse(saved));
       const savedPhotos = localStorage.getItem(PHOTOS_KEY);
       if (savedPhotos) setPhotos(JSON.parse(savedPhotos));
+      const savedOutfits = localStorage.getItem(OUTFITS_KEY);
+      if (savedOutfits) setOutfits(JSON.parse(savedOutfits));
     } catch (_) {}
   }, []);
 
@@ -142,6 +148,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(PHOTOS_KEY, JSON.stringify(photos));
   }, [photos]);
+
+  useEffect(() => {
+    localStorage.setItem(OUTFITS_KEY, JSON.stringify(outfits));
+  }, [outfits]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -170,6 +180,31 @@ export default function App() {
       updated.splice(idx, 1);
       return { ...prev, [itemId]: updated };
     });
+  };
+
+  const openOutfitBuilder = (cat) => setOutfitBuilder({ catId: cat.id, color: cat.color, name: "", selected: [] });
+
+  const toggleOutfitPiece = (piece) => {
+    setOutfitBuilder((prev) => {
+      const exists = prev.selected.some((p) => p.itemId === piece.itemId && p.idx === piece.idx);
+      const selected = exists
+        ? prev.selected.filter((p) => !(p.itemId === piece.itemId && p.idx === piece.idx))
+        : [...prev.selected, piece];
+      return { ...prev, selected };
+    });
+  };
+
+  const saveOutfit = () => {
+    if (!outfitBuilder.name.trim() || outfitBuilder.selected.length === 0) return;
+    const newOutfit = { id: Date.now(), name: outfitBuilder.name.trim(), photos: outfitBuilder.selected, createdAt: new Date().toLocaleString("nl-NL") };
+    setOutfits((prev) => [...prev, newOutfit]);
+    setOutfitBuilder(null);
+    showToast("👗 Outfit opgeslagen!");
+  };
+
+  const deleteOutfit = (id) => {
+    setOutfits((prev) => prev.filter((o) => o.id !== id));
+    setViewingOutfit(null);
   };
 
   const exportAsImage = async () => {
@@ -269,6 +304,113 @@ export default function App() {
                   onChange={(e) => { handlePhotoUpload(proofModal.id, e); }} />
               </label>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Outfit builder modal */}
+      {outfitBuilder && (() => {
+        const cat = categories.find((c) => c.id === outfitBuilder.catId);
+        const pieces = cat.items.flatMap((it) => (photos[it.id] || []).map((photo, idx) => ({ itemId: it.id, idx, itemText: it.text, data: photo.data })));
+        const isSelected = (itemId, idx) => outfitBuilder.selected.some((p) => p.itemId === itemId && p.idx === idx);
+
+        return (
+          <div onClick={() => setOutfitBuilder(null)} style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20
+          }}>
+            <div onClick={(e) => e.stopPropagation()} style={{
+              background: "#172033", borderRadius: 16, padding: 20, maxWidth: 480, width: "100%",
+              maxHeight: "85vh", overflowY: "auto", border: "1px solid #334155"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ color: "#F1F5F9", margin: 0, fontSize: 16 }}>👗 Nieuwe outfit</h3>
+                <button onClick={() => setOutfitBuilder(null)} style={{ background: "none", border: "none", color: "#64748B", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+
+              {pieces.length === 0 ? (
+                <p style={{ color: "#64748B", fontSize: 14, textAlign: "center", padding: "20px 0" }}>
+                  Upload eerst foto's bij kledingitems om outfits samen te stellen.
+                </p>
+              ) : (
+                <>
+                  {outfitBuilder.selected.length > 0 && (
+                    <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
+                      {outfitBuilder.selected.map((p) => (
+                        <img key={`${p.itemId}-${p.idx}`} src={p.data} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover", flexShrink: 0, border: `2px solid ${outfitBuilder.color}` }} />
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ color: "#64748B", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>KIES KLEDINGSTUKKEN</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
+                    {pieces.map((p) => (
+                      <div key={`${p.itemId}-${p.idx}`} onClick={() => toggleOutfitPiece(p)} style={{ position: "relative", cursor: "pointer" }}>
+                        <img src={p.data} alt={p.itemText} style={{
+                          width: "100%", aspectRatio: "1", borderRadius: 10, objectFit: "cover",
+                          border: `2px solid ${isSelected(p.itemId, p.idx) ? outfitBuilder.color : "#334155"}`,
+                          opacity: isSelected(p.itemId, p.idx) ? 1 : 0.6
+                        }} />
+                        {isSelected(p.itemId, p.idx) && (
+                          <div style={{ position: "absolute", top: 4, right: 4, background: outfitBuilder.color, color: "#fff", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>✓</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Naam van deze outfit (bv. Avond uit eten)"
+                    value={outfitBuilder.name}
+                    onChange={(e) => setOutfitBuilder((prev) => ({ ...prev, name: e.target.value }))}
+                    style={{
+                      width: "100%", background: "#0C1A2E", border: "1px solid #334155", borderRadius: 10,
+                      padding: "10px 12px", color: "#F1F5F9", fontSize: 14, marginBottom: 12, boxSizing: "border-box"
+                    }}
+                  />
+
+                  <button
+                    onClick={saveOutfit}
+                    disabled={!outfitBuilder.name.trim() || outfitBuilder.selected.length === 0}
+                    style={{
+                      width: "100%", background: outfitBuilder.color, border: "none", borderRadius: 10,
+                      padding: "12px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                      opacity: (!outfitBuilder.name.trim() || outfitBuilder.selected.length === 0) ? 0.5 : 1
+                    }}
+                  >
+                    💾 Outfit opslaan
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Outfit view modal */}
+      {viewingOutfit && (
+        <div onClick={() => setViewingOutfit(null)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 100,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: "#172033", borderRadius: 16, padding: 20, maxWidth: 480, width: "100%",
+            maxHeight: "80vh", overflowY: "auto", border: "1px solid #334155"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ color: "#F1F5F9", margin: 0, fontSize: 16 }}>👗 {viewingOutfit.name}</h3>
+              <button onClick={() => setViewingOutfit(null)} style={{ background: "none", border: "none", color: "#64748B", fontSize: 20, cursor: "pointer" }}>✕</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 16 }}>
+              {viewingOutfit.photos.map((p, i) => (
+                <img key={i} src={p.data} alt={p.itemText} style={{ width: "100%", aspectRatio: "1", borderRadius: 10, objectFit: "cover", border: "1px solid #334155" }} />
+              ))}
+            </div>
+            <p style={{ color: "#64748B", fontSize: 12, marginBottom: 12 }}>{viewingOutfit.createdAt}</p>
+            <button onClick={() => deleteOutfit(viewingOutfit.id)} style={{
+              width: "100%", background: "#EF444420", border: "1px solid #EF444460", color: "#EF4444",
+              borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 600, cursor: "pointer"
+            }}>Verwijder outfit</button>
           </div>
         </div>
       )}
@@ -376,6 +518,34 @@ export default function App() {
                             style={{ width: 56, height: 56, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: `2px solid ${cat.color}40`, cursor: "pointer" }} />
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {cat.id === "kleding" && (
+                    <div style={{ marginTop: 14, borderTop: "1px solid #1E2F47", paddingTop: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "#64748B", fontSize: 12, fontWeight: 600 }}>
+                          👗 OUTFITS {outfits.length > 0 && `(${outfits.length})`}
+                        </span>
+                        <button onClick={() => openOutfitBuilder(cat)} style={{ background: cat.color + "20", border: "none", color: cat.color, borderRadius: 8, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
+                          + Nieuwe outfit
+                        </button>
+                      </div>
+
+                      {outfits.length > 0 && (
+                        <div style={{ display: "flex", gap: 10, marginTop: 8, overflowX: "auto", paddingBottom: 4 }}>
+                          {outfits.map((o) => (
+                            <div key={o.id} onClick={() => setViewingOutfit(o)} style={{ cursor: "pointer", flexShrink: 0, width: 76 }}>
+                              <div style={{ display: "flex" }}>
+                                {o.photos.slice(0, 3).map((p, i) => (
+                                  <img key={i} src={p.data} alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", border: `2px solid ${cat.color}`, marginLeft: i > 0 ? -12 : 0 }} />
+                                ))}
+                              </div>
+                              <div style={{ color: "#CBD5E1", fontSize: 11, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
