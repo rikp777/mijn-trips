@@ -194,6 +194,16 @@ export default function App() {
     });
   };
 
+  const moveOutfitPiece = (index, dir) => {
+    setOutfitBuilder((prev) => {
+      const selected = [...prev.selected];
+      const target = index + dir;
+      if (target < 0 || target >= selected.length) return prev;
+      [selected[index], selected[target]] = [selected[target], selected[index]];
+      return { ...prev, selected };
+    });
+  };
+
   const saveOutfit = () => {
     if (!outfitBuilder.name.trim() || outfitBuilder.selected.length === 0) return;
     const newOutfit = { id: Date.now(), name: outfitBuilder.name.trim(), photos: outfitBuilder.selected, createdAt: new Date().toLocaleString("nl-NL") };
@@ -335,10 +345,19 @@ export default function App() {
               ) : (
                 <>
                   {outfitBuilder.selected.length > 0 && (
-                    <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
-                      {outfitBuilder.selected.map((p) => (
-                        <img key={`${p.itemId}-${p.idx}`} src={p.data} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover", flexShrink: 0, border: `2px solid ${outfitBuilder.color}` }} />
-                      ))}
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ color: "#64748B", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>OUTFIT (BOVEN → ONDER)</div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: "#0C1A2E", borderRadius: 12, padding: 12 }}>
+                        {outfitBuilder.selected.map((p, i) => (
+                          <div key={`${p.itemId}-${p.idx}`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                            <img src={p.data} alt="" style={{ width: 72, height: 72, borderRadius: 10, objectFit: "cover", border: `2px solid ${outfitBuilder.color}`, margin: "0 auto" }} />
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <button onClick={() => moveOutfitPiece(i, -1)} disabled={i === 0} style={{ background: "#172033", border: "1px solid #334155", color: i === 0 ? "#334155" : "#CBD5E1", borderRadius: 6, width: 22, height: 18, fontSize: 10, cursor: i === 0 ? "default" : "pointer" }}>▲</button>
+                              <button onClick={() => moveOutfitPiece(i, 1)} disabled={i === outfitBuilder.selected.length - 1} style={{ background: "#172033", border: "1px solid #334155", color: i === outfitBuilder.selected.length - 1 ? "#334155" : "#CBD5E1", borderRadius: 6, width: 22, height: 18, fontSize: 10, cursor: i === outfitBuilder.selected.length - 1 ? "default" : "pointer" }}>▼</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -401,9 +420,9 @@ export default function App() {
               <h3 style={{ color: "#F1F5F9", margin: 0, fontSize: 16 }}>👗 {viewingOutfit.name}</h3>
               <button onClick={() => setViewingOutfit(null)} style={{ background: "none", border: "none", color: "#64748B", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginBottom: 16, background: "#0C1A2E", borderRadius: 12, padding: 16 }}>
               {viewingOutfit.photos.map((p, i) => (
-                <img key={i} src={p.data} alt={p.itemText} style={{ width: "100%", aspectRatio: "1", borderRadius: 10, objectFit: "cover", border: "1px solid #334155" }} />
+                <img key={i} src={p.data} alt={p.itemText} style={{ width: 140, maxWidth: "60%", aspectRatio: "1", borderRadius: 10, objectFit: "cover", border: "1px solid #334155" }} />
               ))}
             </div>
             <p style={{ color: "#64748B", fontSize: 12, marginBottom: 12 }}>{viewingOutfit.createdAt}</p>
@@ -535,13 +554,13 @@ export default function App() {
                       {outfits.length > 0 && (
                         <div style={{ display: "flex", gap: 10, marginTop: 8, overflowX: "auto", paddingBottom: 4 }}>
                           {outfits.map((o) => (
-                            <div key={o.id} onClick={() => setViewingOutfit(o)} style={{ cursor: "pointer", flexShrink: 0, width: 76 }}>
-                              <div style={{ display: "flex" }}>
+                            <div key={o.id} onClick={() => setViewingOutfit(o)} style={{ cursor: "pointer", flexShrink: 0, width: 60 }}>
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                                 {o.photos.slice(0, 3).map((p, i) => (
-                                  <img key={i} src={p.data} alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", border: `2px solid ${cat.color}`, marginLeft: i > 0 ? -12 : 0 }} />
+                                  <img key={i} src={p.data} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", border: `2px solid ${cat.color}`, marginTop: i > 0 ? -10 : 0, zIndex: 3 - i }} />
                                 ))}
                               </div>
-                              <div style={{ color: "#CBD5E1", fontSize: 11, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}</div>
+                              <div style={{ color: "#CBD5E1", fontSize: 11, marginTop: 4, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.name}</div>
                             </div>
                           ))}
                         </div>
