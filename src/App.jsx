@@ -150,25 +150,25 @@ export default function App() {
 
   const toggle = (id) => setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  const handlePhotoUpload = useCallback((catId, e) => {
+  const handlePhotoUpload = useCallback((itemId, e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       setPhotos((prev) => {
-        const catPhotos = prev[catId] || [];
-        return { ...prev, [catId]: [...catPhotos, { data: ev.target.result, name: file.name, date: new Date().toLocaleString("nl-NL") }] };
+        const itemPhotos = prev[itemId] || [];
+        return { ...prev, [itemId]: [...itemPhotos, { data: ev.target.result, name: file.name, date: new Date().toLocaleString("nl-NL") }] };
       });
       showToast("📸 Foto opgeslagen als bewijs!");
     };
     reader.readAsDataURL(file);
   }, []);
 
-  const deletePhoto = (catId, idx) => {
+  const deletePhoto = (itemId, idx) => {
     setPhotos((prev) => {
-      const updated = [...(prev[catId] || [])];
+      const updated = [...(prev[itemId] || [])];
       updated.splice(idx, 1);
-      return { ...prev, [catId]: updated };
+      return { ...prev, [itemId]: updated };
     });
   };
 
@@ -230,35 +230,45 @@ export default function App() {
               <button onClick={() => setProofModal(null)} style={{ background: "none", border: "none", color: "#64748B", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
 
-            {(photos[proofModal.id] || []).length === 0 && (
-              <p style={{ color: "#64748B", fontSize: 14, textAlign: "center", padding: "20px 0" }}>
-                Nog geen foto's voor deze categorie
-              </p>
-            )}
+            {(() => {
+              const entries = proofModal.scope === "category"
+                ? proofModal.items.flatMap((it) => (photos[it.id] || []).map((photo, idx) => ({ photo, idx, itemId: it.id, itemText: it.text })))
+                : (photos[proofModal.id] || []).map((photo, idx) => ({ photo, idx, itemId: proofModal.id, itemText: null }));
 
-            {(photos[proofModal.id] || []).map((photo, idx) => (
-              <div key={idx} style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", border: "1px solid #334155" }}>
-                <img src={photo.data} alt={photo.name} style={{ width: "100%", display: "block", maxHeight: 240, objectFit: "cover" }} />
-                <div style={{ background: "#0C1A2E", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "#64748B", fontSize: 11 }}>{photo.date}</span>
-                  <button onClick={() => deletePhoto(proofModal.id, idx)} style={{
-                    background: "#EF444420", border: "none", color: "#EF4444", borderRadius: 6,
-                    padding: "3px 10px", fontSize: 12, cursor: "pointer"
-                  }}>Verwijder</button>
+              if (entries.length === 0) {
+                return (
+                  <p style={{ color: "#64748B", fontSize: 14, textAlign: "center", padding: "20px 0" }}>
+                    Nog geen foto's {proofModal.scope === "category" ? "voor deze categorie" : "voor dit item"}
+                  </p>
+                );
+              }
+
+              return entries.map(({ photo, idx, itemId, itemText }) => (
+                <div key={`${itemId}-${idx}`} style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", border: "1px solid #334155" }}>
+                  <img src={photo.data} alt={photo.name} style={{ width: "100%", display: "block", maxHeight: 240, objectFit: "cover" }} />
+                  <div style={{ background: "#0C1A2E", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "#64748B", fontSize: 11 }}>{itemText ? `${itemText} · ${photo.date}` : photo.date}</span>
+                    <button onClick={() => deletePhoto(itemId, idx)} style={{
+                      background: "#EF444420", border: "none", color: "#EF4444", borderRadius: 6,
+                      padding: "3px 10px", fontSize: 12, cursor: "pointer"
+                    }}>Verwijder</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ));
+            })()}
 
-            <label style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              background: proofModal.color + "20", border: `1px dashed ${proofModal.color}60`,
-              borderRadius: 10, padding: "14px", cursor: "pointer", color: proofModal.color,
-              fontWeight: 600, fontSize: 14, marginTop: 8
-            }}>
-              📷 Foto toevoegen
-              <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
-                onChange={(e) => { handlePhotoUpload(proofModal.id, e); }} />
-            </label>
+            {proofModal.scope === "item" && (
+              <label style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                background: proofModal.color + "20", border: `1px dashed ${proofModal.color}60`,
+                borderRadius: 10, padding: "14px", cursor: "pointer", color: proofModal.color,
+                fontWeight: 600, fontSize: 14, marginTop: 8
+              }}>
+                📷 Foto toevoegen
+                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+                  onChange={(e) => { handlePhotoUpload(proofModal.id, e); }} />
+              </label>
+            )}
           </div>
         </div>
       )}
@@ -303,7 +313,7 @@ export default function App() {
           const catChecked = visibleItems.filter((i) => checked[i.id]).length;
           const isOpen = openCat === cat.id;
           const allDone = catChecked === visibleItems.length;
-          const catPhotos = photos[cat.id] || [];
+          const catPhotoCount = visibleItems.reduce((sum, i) => sum + (photos[i.id] || []).length, 0);
 
           return (
             <div key={cat.id} style={{ background: "#172033", borderRadius: 16, marginBottom: 12, border: `1px solid ${allDone ? "#34D39940" : "#1E2F47"}`, overflow: "hidden" }}>
@@ -315,7 +325,7 @@ export default function App() {
                   </div>
                   <div style={{ color: "#64748B", fontSize: 12, marginTop: 1 }}>
                     {cat.subtitle}
-                    {catPhotos.length > 0 && <span style={{ marginLeft: 8, color: cat.color }}>📸 {catPhotos.length} foto{catPhotos.length > 1 ? "\'s" : ""}</span>}
+                    {catPhotoCount > 0 && <span style={{ marginLeft: 8, color: cat.color }}>📸 {catPhotoCount} foto{catPhotoCount > 1 ? "\'s" : ""}</span>}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -327,46 +337,47 @@ export default function App() {
               {isOpen && (
                 <div style={{ padding: "0 18px 16px" }}>
                   <div style={{ height: 1, background: "#1E2F47", marginBottom: 12 }} />
-                  {visibleItems.map((item) => (
-                    <label key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "8px 0", cursor: "pointer", borderBottom: "1px solid #1E2F4740" }}>
-                      <div onClick={() => toggle(item.id)} style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1, background: checked[item.id] ? cat.color : "transparent", border: `2px solid ${checked[item.id] ? cat.color : "#334155"}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-                        {checked[item.id] && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
+                  {visibleItems.map((item) => {
+                    const itemPhotoCount = (photos[item.id] || []).length;
+                    return (
+                      <div key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "8px 0", borderBottom: "1px solid #1E2F4740" }}>
+                        <div onClick={() => toggle(item.id)} style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1, cursor: "pointer", background: checked[item.id] ? cat.color : "transparent", border: `2px solid ${checked[item.id] ? cat.color : "#334155"}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
+                          {checked[item.id] && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
+                        </div>
+                        <span onClick={() => toggle(item.id)} style={{ color: checked[item.id] ? "#475569" : "#CBD5E1", fontSize: 14, lineHeight: 1.5, textDecoration: checked[item.id] ? "line-through" : "none", flex: 1, cursor: "pointer" }}>
+                          {item.text}
+                          {item.included && <span style={{ marginLeft: 6, fontSize: 10, background: "#0EA5E920", color: "#38BDF8", borderRadius: 4, padding: "1px 6px", fontWeight: 600, verticalAlign: "middle" }}>INBEGREPEN</span>}
+                        </span>
+                        <button onClick={() => setProofModal({ scope: "item", id: item.id, title: item.text, color: cat.color })} style={{
+                          flexShrink: 0, background: itemPhotoCount > 0 ? cat.color + "20" : "transparent", border: `1px solid ${itemPhotoCount > 0 ? cat.color + "60" : "#334155"}`,
+                          color: itemPhotoCount > 0 ? cat.color : "#64748B", borderRadius: 8, padding: "3px 8px", fontSize: 11, cursor: "pointer", fontWeight: 600, marginTop: 1
+                        }}>
+                          📷{itemPhotoCount > 0 && ` ${itemPhotoCount}`}
+                        </button>
                       </div>
-                      <span style={{ color: checked[item.id] ? "#475569" : "#CBD5E1", fontSize: 14, lineHeight: 1.5, textDecoration: checked[item.id] ? "line-through" : "none", flex: 1 }}>
-                        {item.text}
-                        {item.included && <span style={{ marginLeft: 6, fontSize: 10, background: "#0EA5E920", color: "#38BDF8", borderRadius: 4, padding: "1px 6px", fontWeight: 600, verticalAlign: "middle" }}>INBEGREPEN</span>}
-                      </span>
-                    </label>
-                  ))}
+                    );
+                  })}
 
-                  {/* Photo proof section */}
-                  <div style={{ marginTop: 14, borderTop: "1px solid #1E2F47", paddingTop: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: "#64748B", fontSize: 12, fontWeight: 600 }}>
-                        📸 BEWIJS FOTO'S {catPhotos.length > 0 && `(${catPhotos.length})`}
-                      </span>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {catPhotos.length > 0 && (
-                          <button onClick={() => setProofModal(cat)} style={{ background: cat.color + "20", border: "none", color: cat.color, borderRadius: 8, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
-                            Bekijk alle
-                          </button>
-                        )}
-                        <label style={{ background: cat.color + "20", border: "none", color: cat.color, borderRadius: 8, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
-                          + Foto
-                          <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => handlePhotoUpload(cat.id, e)} />
-                        </label>
+                  {/* Combined photo proof overview */}
+                  {catPhotoCount > 0 && (
+                    <div style={{ marginTop: 14, borderTop: "1px solid #1E2F47", paddingTop: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "#64748B", fontSize: 12, fontWeight: 600 }}>
+                          📸 ALLE BEWIJS FOTO'S ({catPhotoCount})
+                        </span>
+                        <button onClick={() => setProofModal({ scope: "category", id: cat.id, title: cat.title, color: cat.color, items: visibleItems })} style={{ background: cat.color + "20", border: "none", color: cat.color, borderRadius: 8, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
+                          Bekijk alle
+                        </button>
                       </div>
-                    </div>
 
-                    {catPhotos.length > 0 && (
                       <div style={{ display: "flex", gap: 6, marginTop: 8, overflowX: "auto", paddingBottom: 4 }}>
-                        {catPhotos.map((photo, idx) => (
-                          <img key={idx} src={photo.data} alt="bewijs" onClick={() => setProofModal(cat)}
+                        {visibleItems.flatMap((it) => (photos[it.id] || []).map((photo, idx) => ({ photo, key: `${it.id}-${idx}` }))).map(({ photo, key }) => (
+                          <img key={key} src={photo.data} alt="bewijs" onClick={() => setProofModal({ scope: "category", id: cat.id, title: cat.title, color: cat.color, items: visibleItems })}
                             style={{ width: 56, height: 56, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: `2px solid ${cat.color}40`, cursor: "pointer" }} />
                         ))}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
