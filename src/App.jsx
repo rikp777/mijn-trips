@@ -27,7 +27,7 @@ export default function App() {
   };
 
   function TabContent() {
-    if (tab === "home") return <HomeView onNavigate={setTab} />;
+    if (tab === "home") return <HomeView />;
 
     if (tab === "pack") return <PackingView showToast={showToast} />;
 
