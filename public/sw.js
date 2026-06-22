@@ -3,7 +3,7 @@
 // Open-Meteo API responses also cached so the last-seen weather/wind is shown
 // when there's no internet (useful on the beach at Ringkøbing Fjord).
 
-const CACHE = "kite-paklijst-v3";
+const CACHE = "mijn-trips-v1";
 const PRECACHE = [self.registration.scope]; // index.html entry point
 
 self.addEventListener("install", (event) => {
