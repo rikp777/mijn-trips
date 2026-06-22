@@ -12,7 +12,7 @@ export default function PageHero({ eyebrow, title, subtitle, children }) {
       }}
     >
       <div style={{ position: "absolute", inset: 0, opacity: 0.07, backgroundImage: "repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)", backgroundSize: "20px 20px" }} />
-      <div style={{ position: "relative", maxWidth: 480, margin: "0 auto" }}>
+      <div className="page-inner" style={{ position: "relative" }}>
         {eyebrow && (
           <div style={{ fontSize: 13, color: colors.accentLight, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>{eyebrow}</div>
         )}

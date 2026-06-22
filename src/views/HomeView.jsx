@@ -96,7 +96,7 @@ export default function HomeView() {
         <WindWidget />
       </PageHero>
 
-      <div style={{ maxWidth: 480, margin: "-48px auto 0", padding: "0 16px", position: "relative", zIndex: 1 }}>
+      <div className="page-content">
         <TripCountdownCard />
         <WeatherForecast />
       </div>

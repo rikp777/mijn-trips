@@ -1,0 +1,46 @@
+/* Responsive inner container — constrains page-hero / header content width */
+.page-inner {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .page-inner {
+    max-width: 1000px;
+  }
+}
+
+/* Page content area below the hero */
+.page-content {
+  max-width: 480px;
+  margin: -48px auto 0;
+  padding: 0 16px;
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 900px) {
+  .page-content {
+    max-width: 1000px;
+    margin: -48px auto 0;
+    padding: 0 32px;
+  }
+}
+
+/* Packing view hero overlaps more */
+.page-content--pack {
+  max-width: 480px;
+  margin: -48px auto 0;
+  padding: 0 16px;
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 900px) {
+  .page-content--pack {
+    max-width: 1000px;
+    margin: -48px auto 0;
+    padding: 0 32px;
+  }
+}

@@ -46,7 +46,7 @@ export default function Header({
           backgroundSize: "20px 20px",
         }}
       />
-      <div style={{ position: "relative", maxWidth: 480, margin: "0 auto" }}>
+      <div className="page-inner" style={{ position: "relative" }}>
         <div style={{ fontSize: 13, color: colors.accentLight, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
           🪁 Ripstar · 4 juli · Solo roadtrip
         </div>
