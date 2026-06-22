@@ -1,10 +1,10 @@
-// Minimal offline-first service worker (no build step / no deps).
-// Strategy: serve from cache when possible, update the cache in the
-// background. Hashed Vite assets are cached on first request, so a second
-// visit works fully offline.
+// Offline-first service worker.
+// App shell (HTML + hashed Vite bundles) cached on first visit → works offline.
+// Open-Meteo API responses also cached so the last-seen weather/wind is shown
+// when there's no internet (useful on the beach at Ringkøbing Fjord).
 
-const CACHE = "kite-paklijst-v1";
-const PRECACHE = [self.registration.scope]; // app shell entry (index.html)
+const CACHE = "kite-paklijst-v2";
+const PRECACHE = [self.registration.scope]; // index.html entry point
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -19,18 +19,26 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+      )
       .then(() => self.clients.claim())
   );
 });
 
+// Stale-while-revalidate for all cacheable GET requests.
+// Covers both same-origin Vite assets AND Open-Meteo API calls.
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET" || !request.url.startsWith("http")) return;
 
-  // Don't cache cross-origin API calls (e.g. the live wind forecast).
-  const sameOrigin = new URL(request.url).origin === self.location.origin;
-  if (!sameOrigin) return;
+  const url = new URL(request.url);
+  const sameOrigin = url.origin === self.location.origin;
+  const isOpenMeteo =
+    url.hostname === "api.open-meteo.com" ||
+    url.hostname === "marine-api.open-meteo.com";
+
+  if (!sameOrigin && !isOpenMeteo) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {
@@ -43,6 +51,8 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => cached);
+
+      // Return cached immediately while updating in the background
       return cached || network;
     })
   );
