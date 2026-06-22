@@ -290,13 +290,13 @@ export default function HomeView({ onOpenTrip }) {
 
   return (
     <>
-      <PageHero eyebrow="🪁 Kite Trips" title="Dashboard" subtitle="Jouw kitesurf planner">
+      <PageHero eyebrow="🗺️ Mijn Trips" title="Dashboard" subtitle="Jouw reisplanner">
         <WindWidget />
       </PageHero>
 
       <div className="page-content">
         <div style={{ fontSize: 11, fontWeight: 700, color: colors.textMuted, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
-          Mijn kite trips
+          Mijn trips
         </div>
 
         {trips.map((trip) => (
