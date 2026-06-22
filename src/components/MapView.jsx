@@ -2,7 +2,57 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { colors } from "../constants/theme";
-import { locations, locationCategories, FJORD_CENTER } from "../data/locations";
+import { useTrip } from "../context/TripContext";
+import { locations as dkLocations, locationCategories as dkCategories, FJORD_CENTER, ROUTE_STOPS as DK_ROUTE_STOPS, DK_BIKE_ROUTE_STOPS } from "../data/locations";
+import { locations as roadtripLocations, roadtripCategories, ROADTRIP_CENTER, ROUTE_STOPS } from "../data/locations-roadtrip-2026";
+import { locations as jnLocations, jnCategories, JN_CENTER, JN_ROUTE_STOPS, JN_ROUTE_MODE } from "../data/locations-jn-kamp-2026";
+import { BORDER_LINES } from "../data/border-lines-generated";
+import { ROUTES } from "../data/routes-generated";
+
+function routePopupHtml(label, detail, color) {
+  return `<div style="font-family:system-ui,sans-serif;min-width:160px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      <span style="display:inline-block;width:14px;height:4px;border-radius:2px;background:${color};flex-shrink:0"></span>
+      <strong style="font-size:13px;color:#0f172a;line-height:1.3">${label}</strong>
+    </div>
+    <div style="font-size:12px;color:#475569;line-height:1.5">${detail}</div>
+  </div>`;
+}
+
+function getMapData(trip) {
+  if (trip?.id === "europe-roadtrip-2026") {
+    return {
+      locations: roadtripLocations, locationCategories: roadtripCategories,
+      mapCenter: ROADTRIP_CENTER, routeStops: ROUTE_STOPS, routeMode: "car", routeKey: "ROADTRIP_DRIVE",
+      routeMeta: { label: "🚗 Europa Roadtrip", detail: "~3.324 km &nbsp;·&nbsp; volledige lus<br>NL → DE → AT → CZ → PL → DE → NL", color: "#0EA5E9" },
+      borderCrossings: [
+        { ways: BORDER_LINES["NL-DE"], label: "🇳🇱 NL &nbsp;·&nbsp; DE 🇩🇪", lpos: [51.50, 6.38] },
+        { ways: BORDER_LINES["DE-AT"], label: "🇩🇪 DE &nbsp;·&nbsp; AT 🇦🇹", lpos: [47.56, 12.42] },
+        { ways: BORDER_LINES["DE-CZ"], label: "🇩🇪 DE &nbsp;·&nbsp; CZ 🇨🇿", lpos: [49.46, 13.58] },
+        { ways: BORDER_LINES["CZ-PL"], label: "🇨🇿 CZ &nbsp;·&nbsp; PL 🇵🇱", lpos: [50.22, 18.62] },
+        { ways: BORDER_LINES["PL-DE"], label: "🇵🇱 PL &nbsp;·&nbsp; DE 🇩🇪", lpos: [51.28, 14.65] },
+        { ways: BORDER_LINES["DE-NL"], label: "🇩🇪 DE &nbsp;·&nbsp; NL 🇳🇱", lpos: [51.82, 5.58] },
+      ],
+    };
+  }
+  if (trip?.id === "jn-kamp-2026") {
+    return {
+      locations: jnLocations, locationCategories: jnCategories, mapCenter: JN_CENTER, routeStops: JN_ROUTE_STOPS, routeMode: JN_ROUTE_MODE, routeKey: "JN_BIKE",
+      routeMeta: { label: "🚲 Fietsroute naar kamp", detail: "~30 km &nbsp;·&nbsp; ~1.5u fietsen<br>Panningen → De Paardekop, Ysselsteyn", color: "#10B981" },
+    };
+  }
+  return {
+    locations: dkLocations, locationCategories: dkCategories,
+    mapCenter: FJORD_CENTER, routeStops: DK_ROUTE_STOPS, routeMode: "car", routeKey: "DK_DRIVE",
+    routeMeta: { label: "🚗 Rijroute naar Denemarken", detail: "~914 km &nbsp;·&nbsp; ~9.5u rijden<br>Panningen → Ringkøbing Fjord", color: "#0EA5E9" },
+    bikeRouteStops: DK_BIKE_ROUTE_STOPS,
+    bikeMeta: { label: "🚲 Fietsroute dagtrip", detail: "~37 km &nbsp;·&nbsp; ~2.5u fietsen<br>Kamp → Stauning → Ringkøbing centrum", color: "#22C55E" },
+    borderCrossings: [
+      { ways: BORDER_LINES["NL-DE"], label: "🇳🇱 NL &nbsp;·&nbsp; DE 🇩🇪", lpos: [51.56, 5.76] },
+      { ways: BORDER_LINES["DE-DK"], label: "🇩🇪 DE &nbsp;·&nbsp; DK 🇩🇰", lpos: [54.96, 8.75] },
+    ],
+  };
+}
 
 const TILES = {
   street: {
@@ -15,8 +65,9 @@ const TILES = {
   },
 };
 
-// Canonical display order for grouped location list
-const CATEGORY_ORDER = ["camp", "kite", "restaurant", "food", "nightlife", "sight", "nature", "practical"];
+const CATEGORY_ORDER_DK       = ["home", "camp", "reststop", "bike", "kite", "restaurant", "food", "nightlife", "sight", "nature", "practical"];
+const CATEGORY_ORDER_ROADTRIP = ["home", "stop", "reststop", "sight", "nature", "daytrip", "food"];
+const CATEGORY_ORDER_JN       = ["home", "camp", "waypoint", "nature", "practical"];
 
 function makeIcon(emoji, color, large = false) {
   const s = large ? 44 : 34;
@@ -36,18 +87,19 @@ function makeIcon(emoji, color, large = false) {
   });
 }
 
-function popupHtml(loc) {
-  const drive = loc.driveMin === null ? null
-    : loc.driveMin === 0 ? "5 min 🚶 lopen"
-    : `~${loc.driveMin} min 🚗`;
-  const catColor = locationCategories[loc.category]?.color ?? "#64748b";
+function popupHtml(loc, catColor) {
+  const sub = loc.stop ?? (
+    loc.driveMin === null ? null
+    : loc.driveMin === 0 ? "5 min 🚶 lopen vanaf kamp"
+    : `~${loc.driveMin} min 🚗 vanaf kamp`
+  );
   return `
     <div style="font-family:system-ui,sans-serif;min-width:190px;max-width:250px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
         <span style="font-size:18px;line-height:1">${loc.emoji}</span>
         <strong style="font-size:13px;color:#0f172a;line-height:1.3;flex:1">${loc.name}</strong>
       </div>
-      ${drive ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px;padding:3px 8px;background:#f1f5f9;border-radius:6px;display:inline-block">${drive} vanaf kamp</div>` : ""}
+      ${sub ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px;padding:3px 8px;background:#f1f5f9;border-radius:6px;display:inline-block">${sub}</div>` : ""}
       <div style="font-size:12px;color:#475569;line-height:1.55;margin-bottom:10px">${loc.desc}</div>
       <a href="${loc.maps}" target="_blank" rel="noopener"
         style="display:inline-flex;align-items:center;gap:4px;background:${catColor};color:#fff;
@@ -57,22 +109,33 @@ function popupHtml(loc) {
     </div>`;
 }
 
-function driveChip(min) {
-  if (min === null) return null;
-  return min === 0 ? "5 min 🚶" : `~${min} min 🚗`;
+function subChip(loc) {
+  if (loc.stop) return loc.stop;
+  if (loc.driveMin === null) return null;
+  return loc.driveMin === 0 ? "5 min 🚶" : `~${loc.driveMin} min 🚗`;
 }
 
 export default function MapView({ focus }) {
-  const containerRef = useRef(null);
-  const mapRef      = useRef(null);
-  const markersRef  = useRef({});
-  const tileRef     = useRef(null);
-  const readyRef    = useRef(false);
-  const focusRef    = useRef(focus);
+  const { activeTrip } = useTrip();
+  const { locations, locationCategories, mapCenter, routeStops, routeMode, routeKey, routeMeta, bikeRouteStops, bikeMeta, borderCrossings } = getMapData(activeTrip);
+  const CATEGORY_ORDER = activeTrip?.id === "jn-kamp-2026" ? CATEGORY_ORDER_JN
+    : activeTrip?.id === "europe-roadtrip-2026" ? CATEGORY_ORDER_ROADTRIP
+    : CATEGORY_ORDER_DK;
 
-  const [satellite, setSatellite]           = useState(false);
-  const [activeCategories, setActive]       = useState(() => new Set(Object.keys(locationCategories)));
-  const [search, setSearch]                 = useState("");
+  const containerRef    = useRef(null);
+  const mapRef          = useRef(null);
+  const markersRef      = useRef({});
+  const itemRefs        = useRef({});
+  const routeRef        = useRef(null);
+  const bikeRouteRef    = useRef(null);
+  const tileRef         = useRef(null);
+  const readyRef        = useRef(false);
+  const focusRef        = useRef(focus);
+
+  const [satellite, setSatellite]     = useState(false);
+  const [activeCategories, setActive] = useState(() => new Set(Object.keys(locationCategories)));
+  const [search, setSearch]           = useState("");
+  const [selectedId, setSelectedId]   = useState(null);
 
   useEffect(() => { focusRef.current = focus; }, [focus]);
 
@@ -117,18 +180,64 @@ export default function MapView({ focus }) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = L.map(containerRef.current, { scrollWheelZoom: false, zoomControl: false })
-      .setView([FJORD_CENTER.lat, FJORD_CENTER.lon], FJORD_CENTER.zoom);
+    const map = L.map(containerRef.current, { scrollWheelZoom: false, zoomControl: false, preferCanvas: true })
+      .setView([mapCenter.lat, mapCenter.lon], mapCenter.zoom);
     mapRef.current = map;
     L.control.zoom({ position: "bottomright" }).addTo(map);
 
     tileRef.current = L.tileLayer(TILES.street.url, { attribution: TILES.street.attribution, maxZoom: 19 }).addTo(map);
 
+    // Route polyline — uses pre-baked geometry from routes-generated.js (no runtime fetch)
+    if (routeStops?.length) {
+      const isBike = routeMode === "bike";
+      const lineColor = isBike ? "#10B981" : "#0EA5E9";
+      const baked = routeKey ? ROUTES[routeKey] : null;
+      const latLngs = baked?.length ? baked : routeStops.map((s) => [s.lat, s.lon]);
+      const baseStyle = { color: lineColor, weight: 4, opacity: baked?.length ? 0.85 : 0.5, dashArray: baked?.length ? null : "6 8" };
+      const line = L.polyline(latLngs, baseStyle).addTo(map);
+      routeRef.current = line;
+      if (routeMeta) {
+        line.bindPopup(routePopupHtml(routeMeta.label, routeMeta.detail, lineColor), { maxWidth: 260 });
+        line.on("click", () => line.setStyle({ weight: 7, opacity: 1 }));
+        line.on("popupclose", () => line.setStyle(baseStyle));
+      }
+    }
+
+    // Border lines — pre-baked static data from border-lines-generated.js (no runtime fetch)
+    if (borderCrossings?.length) {
+      const bStyle = { color: "rgba(255,255,255,0.48)", weight: 2, dashArray: "4 8", interactive: false };
+      const mkLabel = (html) => L.divIcon({
+        className: "",
+        html: `<div style="background:rgba(12,12,22,0.84);border:1px solid rgba(255,255,255,0.28);color:rgba(255,255,255,0.84);font-size:10px;font-weight:700;font-family:system-ui,sans-serif;padding:2px 8px;border-radius:10px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.55)">${html}</div>`,
+        iconSize: [95, 20], iconAnchor: [47, 10],
+      });
+      borderCrossings.forEach(({ ways, label, lpos }) => {
+        ways?.forEach(coords => L.polyline(coords, bStyle).addTo(map));
+        L.marker(lpos, { icon: mkLabel(label), interactive: false }).addTo(map);
+      });
+    }
+
+    // Local bike day-trip route (second polyline, only for DK trip)
+    if (bikeRouteStops?.length) {
+      const baked = ROUTES["DK_BIKE"];
+      const latLngs = baked?.length ? baked : bikeRouteStops.map((s) => [s.lat, s.lon]);
+      const baseStyle = { color: "#22C55E", weight: 4, opacity: baked?.length ? 0.85 : 0.45, dashArray: baked?.length ? null : "6 8" };
+      const line = L.polyline(latLngs, baseStyle).addTo(map);
+      bikeRouteRef.current = line;
+      if (bikeMeta) {
+        line.bindPopup(routePopupHtml(bikeMeta.label, bikeMeta.detail, "#22C55E"), { maxWidth: 260 });
+        line.on("click", () => line.setStyle({ weight: 7, opacity: 1 }));
+        line.on("popupclose", () => line.setStyle(baseStyle));
+      }
+    }
+
     locations.forEach((loc) => {
       const color = locationCategories[loc.category]?.color ?? "#64748b";
-      const marker = L.marker([loc.lat, loc.lon], { icon: makeIcon(loc.emoji, color, loc.id === "camp") })
+      const isMainStop = loc.id === "camp" || loc.category === "stop";
+      const marker = L.marker([loc.lat, loc.lon], { icon: makeIcon(loc.emoji, color, isMainStop) })
         .addTo(map)
-        .bindPopup(popupHtml(loc), { maxWidth: 260 });
+        .bindPopup(popupHtml(loc, color), { maxWidth: 260 })
+        .on("click", () => setSelectedId(loc.id));
       markersRef.current[loc.id] = marker;
     });
 
@@ -141,7 +250,9 @@ export default function MapView({ focus }) {
         const loc = locations.find((l) => l.id === tid);
         if (loc) { map.setView([loc.lat, loc.lon], 14); markersRef.current[tid]?.openPopup(); }
       } else {
-        markersRef.current["camp"]?.openPopup();
+        // Open first stop/camp marker by default
+        const defaultId = locations.find((l) => l.category === "stop" || l.id === "camp")?.id;
+        if (defaultId) markersRef.current[defaultId]?.openPopup();
       }
     }, 650);
 
@@ -149,6 +260,8 @@ export default function MapView({ focus }) {
       map.remove();
       mapRef.current = null;
       markersRef.current = {};
+      routeRef.current = null;
+      bikeRouteRef.current = null;
       tileRef.current = null;
       readyRef.current = false;
     };
@@ -163,6 +276,18 @@ export default function MapView({ focus }) {
     mapRef.current.flyTo([loc.lat, loc.lon], 14, { duration: 0.7 });
     setTimeout(() => marker.openPopup(), 750);
   }, [focus]);
+
+  // ── Scroll list to highlighted item when map marker is clicked ──────
+  useEffect(() => {
+    if (!selectedId || !itemRefs.current[selectedId]) return;
+    itemRefs.current[selectedId].scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedId]);
+
+  // ── Reset markers/route when trip changes ────────────────────────
+  useEffect(() => {
+    if (!mapRef.current) return;
+    // Nothing to do — MapView remounts when trip changes (lazy import)
+  }, [activeTrip?.id]);
 
   // ── Tile layer swap ──────────────────────────────────────────────
   useEffect(() => {
@@ -303,8 +428,8 @@ export default function MapView({ focus }) {
 
         {/* Floating controls */}
         <div style={{ position: "absolute", top: 10, right: 10, display: "flex", flexDirection: "column", gap: 6, zIndex: 999 }}>
-          <MapBtn onClick={() => { const c = locations.find((l) => l.id === "camp"); if (c) flyTo(c); }} title="Naar kamp">
-            🏕️
+          <MapBtn onClick={() => { const c = locations.find((l) => l.id === "camp" || l.category === "stop"); if (c) flyTo(c); }} title="Naar vertrekpunt">
+            {routeStops ? "🗺️" : "🏕️"}
           </MapBtn>
           <MapBtn onClick={fitAll} title="Toon alle zichtbare pins" disabled={!filtered.length}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -365,16 +490,18 @@ export default function MapView({ focus }) {
             </div>
 
             {locs.map((loc) => {
-              const chip = driveChip(loc.driveMin);
+              const chip = subChip(loc);
               return (
                 <article
                   key={loc.id}
+                  ref={el => { itemRefs.current[loc.id] = el; }}
                   style={{
-                    background: colors.surface,
-                    border: `1px solid ${colors.surfaceBorder}`,
+                    background: selectedId === loc.id ? `${cat.color}18` : colors.surface,
+                    border: `1px solid ${selectedId === loc.id ? cat.color + "55" : colors.surfaceBorder}`,
                     borderLeft: `3px solid ${cat.color}`,
                     borderRadius: 12, padding: "10px 14px",
                     marginBottom: 8, display: "flex", gap: 12, alignItems: "flex-start",
+                    transition: "background 0.2s, border-color 0.2s",
                   }}
                 >
                   <span style={{ fontSize: 22, lineHeight: 1.3, flexShrink: 0, marginTop: 1 }}>{loc.emoji}</span>
@@ -394,7 +521,7 @@ export default function MapView({ focus }) {
                     </p>
                     <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
                       <button
-                        onClick={() => flyTo(loc)}
+                        onClick={() => { flyTo(loc); setSelectedId(loc.id); }}
                         style={{ background: "none", border: "none", color: cat.color, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4 }}
                       >
                         📍 Toon op kaart

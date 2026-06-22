@@ -17,11 +17,10 @@ export default function SideNav({ active, onChange, tripDetailOpen, onTripSelect
 
   const handleTripClick = (trip) => {
     if (trip.id === activeTrip.id && tripDetailOpen) {
-      // Clicking the already-selected trip while its detail is open → go to overview
       onShowOverview?.();
     } else {
       setActiveTripId(trip.id);
-      onTripSelect?.();
+      onTripSelect?.(trip.id);
     }
   };
 
@@ -53,10 +52,10 @@ export default function SideNav({ active, onChange, tripDetailOpen, onTripSelect
       >
         <div style={{ fontSize: 22 }}>🪁</div>
         <div style={{ fontSize: 15, fontWeight: 800, color: "#fff", marginTop: 5, lineHeight: 1.2 }}>
-          Kite Trips
+          Mijn Trips
         </div>
         <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 3 }}>
-          Jouw kitesurf planner
+          Jouw reisplanner
         </div>
       </div>
 
@@ -69,11 +68,17 @@ export default function SideNav({ active, onChange, tripDetailOpen, onTripSelect
           const isActive  = trip.id === activeTrip.id;
           const isPast    = trip.endDate < today;
           const isDuring  = today >= trip.startDate && today <= trip.endDate;
-          const isOpen    = isActive && tripDetailOpen;
 
-          let statusDot = null;
-          if (isDuring)   statusDot = { color: "#34D399" };
-          else if (!isPast) statusDot = { color: colors.sky };
+          // Visual state: live (green) > selected (sky) > default
+          const bg     = isDuring  ? "rgba(52,211,153,0.10)"
+                       : isActive  ? `${colors.sky}16`
+                       : "none";
+          const border = isDuring  ? "1px solid rgba(52,211,153,0.38)"
+                       : isActive  ? `1px solid ${colors.sky}40`
+                       : "1px solid transparent";
+          const nameColor = isDuring ? "#34D399"
+                          : isActive ? colors.accentLight
+                          : colors.textBody;
 
           return (
             <button
@@ -81,8 +86,8 @@ export default function SideNav({ active, onChange, tripDetailOpen, onTripSelect
               onClick={() => handleTripClick(trip)}
               style={{
                 width: "100%",
-                background: isOpen ? `${colors.sky}18` : "none",
-                border: isOpen ? `1px solid ${colors.sky}33` : "1px solid transparent",
+                background: bg,
+                border,
                 borderRadius: 10,
                 cursor: "pointer",
                 padding: "10px 12px",
@@ -97,13 +102,13 @@ export default function SideNav({ active, onChange, tripDetailOpen, onTripSelect
               <span style={{ fontSize: 20, flexShrink: 0 }}>{trip.flag ?? trip.emoji}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  fontSize: 13, fontWeight: isOpen ? 700 : 500,
-                  color: isOpen ? colors.accentLight : colors.textBody,
+                  fontSize: 13, fontWeight: isActive || isDuring ? 700 : 500,
+                  color: nameColor,
                   lineHeight: 1.2,
                   display: "flex", alignItems: "center", gap: 5,
                 }}>
                   {trip.name}
-                  {statusDot && <span style={{ width: 6, height: 6, borderRadius: 99, background: statusDot.color, flexShrink: 0 }} />}
+                  {isDuring && <span style={{ width: 6, height: 6, borderRadius: 99, background: "#34D399", flexShrink: 0 }} />}
                 </div>
                 <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 2, lineHeight: 1.3 }}>
                   {formatDateRange(trip.startDate, trip.endDate)}

@@ -44,8 +44,14 @@ function getTripDates(startDate, endDate) {
 
 // ── Trip overview card ───────────────────────────────────────────
 
+const NL_MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+function fmtDate(isoStr) {
+  const d = new Date(isoStr + "T12:00:00");
+  return `${d.getDate()} ${NL_MONTHS[d.getMonth()]}`;
+}
+
 function TripOverviewCard({ trip, isActive, onSelect }) {
-  const { status, days, isPastTrip } = useWeatherForecast(trip);
+  const { status, days, isPastTrip, availableFrom } = useWeatherForecast(trip);
   const phase = useTripPhase(trip.startDate, trip.endDate);
   const [activeDate, setActiveDate] = useState(null);
 
@@ -254,6 +260,15 @@ function TripOverviewCard({ trip, isActive, onSelect }) {
         </>
       )}
 
+      {status === "too-early" && (
+        <div style={{ padding: "4px 14px 12px" }}>
+          <div style={{ fontSize: 12, color: colors.textMuted, lineHeight: 1.5 }}>
+            📅 Weersverwachting beschikbaar vanaf <strong style={{ color: colors.textBody }}>{fmtDate(availableFrom)}</strong>
+            <span style={{ opacity: 0.6 }}> — buiten het 16-daagse voorspellingsvenster</span>
+          </div>
+        </div>
+      )}
+
       {status === "error" && (
         <div style={{ padding: "0 14px 12px", fontSize: 12, color: colors.textMuted }}>
           ⚠️ Weerdata niet beschikbaar
@@ -270,7 +285,7 @@ export default function HomeView({ onOpenTrip }) {
 
   const handleSelect = (id) => {
     setActiveTripId(id);
-    onOpenTrip();
+    onOpenTrip(id);
   };
 
   return (

@@ -3,6 +3,16 @@ import ChecklistItem from "./ChecklistItem";
 import PhotoStrip from "./PhotoStrip";
 import OutfitsSection from "./OutfitsSection";
 
+function hasWeatherAlert(items, profile) {
+  if (!profile) return false;
+  return items.some((item) => {
+    if (!item.climate) return false;
+    if (item.climate === "cold" && (profile.profile === "hot" || profile.profile === "warm")) return true;
+    if (item.climate === "rain" && profile.heavyRainDays === 0) return true;
+    return false;
+  });
+}
+
 /**
  * One collapsible category. Composes the item rows plus the optional
  * photo strip and (for clothing) the outfits section. Stateless: open
@@ -21,10 +31,12 @@ export default function CategoryCard({
   onOpenItemPhotos,
   onOpenCategoryPhotos,
   outfitsSlot,
+  weatherProfile,
 }) {
   const { color } = category;
   const doneCount = items.filter((i) => isChecked(i.id)).length;
   const allDone = doneCount === items.length;
+  const weatherAlert = hasWeatherAlert(items, weatherProfile);
 
   return (
     <div style={{ background: colors.surface, borderRadius: 16, marginBottom: 12, border: `1px solid ${allDone ? "#34D39940" : colors.surfaceBorder}`, overflow: "hidden" }}>
@@ -39,6 +51,11 @@ export default function CategoryCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ color: colors.text, fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}>
             {category.title} {allDone && "✅"}
+            {weatherAlert && !isOpen && (
+              <span style={{ fontSize: 10, background: "#F59E0B20", color: "#F59E0B", borderRadius: 4, padding: "1px 5px", fontWeight: 600 }}>
+                🌤️ CHECK
+              </span>
+            )}
           </div>
           <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 1 }}>
             {category.subtitle}
@@ -65,6 +82,7 @@ export default function CategoryCard({
               photoCount={photoCountFor(item.id)}
               onToggle={() => onToggleItem(item.id)}
               onOpenPhotos={() => onOpenItemPhotos(item)}
+              weatherProfile={weatherProfile}
             />
           ))}
 

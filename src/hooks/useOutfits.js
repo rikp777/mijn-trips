@@ -1,10 +1,9 @@
 import { useCallback } from "react";
 import { useLocalStorage } from "./useLocalStorage";
-import { STORAGE_KEYS } from "../constants/theme";
 
-/** Saved outfits (ordered sets of clothing photos) + persistence. */
-export function useOutfits() {
-  const [outfits, setOutfits] = useLocalStorage(STORAGE_KEYS.outfits, []);
+export function useOutfits(tripId) {
+  const storageKey = `kite_paklijst_outfits_v1_${tripId}`;
+  const [outfits, setOutfits] = useLocalStorage(storageKey, []);
 
   const saveOutfit = useCallback(
     (name, pieces) => {

@@ -1,10 +1,9 @@
 import { useCallback } from "react";
 import { useLocalStorage } from "./useLocalStorage";
-import { STORAGE_KEYS } from "../constants/theme";
 
-/** Proof photos keyed by item id. Encapsulates upload/delete + persistence. */
-export function usePhotos(onUploaded) {
-  const [photos, setPhotos] = useLocalStorage(STORAGE_KEYS.photos, {});
+export function usePhotos(onUploaded, tripId) {
+  const storageKey = `kite_paklijst_photos_v1_${tripId}`;
+  const [photos, setPhotos] = useLocalStorage(storageKey, {});
 
   const addPhoto = useCallback(
     (itemId, file) => {

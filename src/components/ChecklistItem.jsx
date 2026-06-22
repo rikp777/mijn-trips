@@ -11,8 +11,21 @@ const badge = (bg, color) => ({
   verticalAlign: "middle",
 });
 
+function weatherBadge(item, profile) {
+  if (!profile || !item.climate) return null;
+  if (item.climate === "cold" && profile.profile === "hot")
+    return { label: "☀️ WAARSCHIJNLIJK NIET NODIG", bg: "#F9731620", color: "#F97316" };
+  if (item.climate === "cold" && profile.profile === "warm")
+    return { label: "🌤️ CHECK — WARM WEER", bg: "#F59E0B20", color: "#F59E0B" };
+  if (item.climate === "rain" && profile.heavyRainDays === 0 && profile.lightRainDays === 0)
+    return { label: "🌤️ GEEN REGEN VERWACHT", bg: "#34D39920", color: "#34D399" };
+  if (item.climate === "rain" && profile.heavyRainDays === 0 && profile.lightRainDays > 0)
+    return { label: "🌦️ ALLEEN LICHTE BUIEN", bg: "#F59E0B20", color: "#F59E0B" };
+  return null;
+}
+
 /** A single packable item: checkbox, label, badges and its photo button. */
-export default function ChecklistItem({ item, color, checked, photoCount, onToggle, onOpenPhotos }) {
+export default function ChecklistItem({ item, color, checked, photoCount, onToggle, onOpenPhotos, weatherProfile }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "8px 0", borderBottom: "1px solid #1E2F4740" }}>
       <div
@@ -52,6 +65,7 @@ export default function ChecklistItem({ item, color, checked, photoCount, onTogg
         {item.text}
         {item.included && <span style={badge("#0EA5E920", "#38BDF8")}>INBEGREPEN</span>}
         {item.note === "nieuw" && <span style={badge("#F9731620", "#F97316")}>NIEUW</span>}
+        {(() => { const wb = weatherBadge(item, weatherProfile); return wb ? <span style={badge(wb.bg, wb.color)}>{wb.label}</span> : null; })()}
       </span>
 
       <button

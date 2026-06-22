@@ -345,15 +345,107 @@ function StatPill({ emoji, label, color }) {
   );
 }
 
+// ── Multi-stop weather ───────────────────────────────────────────
+
+function StopWeatherStrip({ stop, days, selectedDate, onToggle }) {
+  const s = new Date(stop.startDate + "T12:00:00");
+  const e = new Date(stop.endDate   + "T12:00:00");
+  const months = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+  const dateStr = `${s.getDate()}–${e.getDate()} ${months[s.getMonth()]}`;
+
+  return (
+    <div style={{ borderTop: `1px solid ${colors.surfaceBorder}` }}>
+      <div style={{ padding: "8px 14px 4px", display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 16 }}>{stop.flag}</span>
+        <span style={{ fontWeight: 700, fontSize: 13, color: colors.text }}>{stop.name}</span>
+        <span style={{ fontSize: 11, color: colors.textMuted, marginLeft: "auto" }}>{dateStr}</span>
+      </div>
+      {days.length > 0 ? (
+        <div className="wx-strip" style={{ display: "flex", gap: 6, overflowX: "auto", padding: "4px 10px 8px" }}>
+          {days.map((day) => (
+            <DayCard key={day.date} day={day} isSelected={day.date === selectedDate} onClick={() => onToggle(day.date)} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ padding: "4px 14px 10px", fontSize: 12, color: colors.textMuted }}>
+          Geen weerdata voor deze stop
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────────
 
-export default function WeatherForecast() {
+export default function WeatherForecast({ stopForecasts: stopForecastsProp, wxStatus: wxStatusProp } = {}) {
   const { activeTrip } = useTrip();
-  const { status, days, isPastTrip } = useWeatherForecast(activeTrip);
+  const fetched = useWeatherForecast(activeTrip.stops?.length && stopForecastsProp != null ? null : activeTrip);
+  const status       = stopForecastsProp != null ? wxStatusProp  : fetched.status;
+  const days         = fetched.days;
+  const isPastTrip   = fetched.isPastTrip;
+  const stopForecasts = stopForecastsProp ?? fetched.stopForecasts;
   const [selectedDate, setSelectedDate] = useState(null);
 
   const selectedDay = days.find((d) => d.date === selectedDate) ?? null;
   const toggle = (date) => setSelectedDate((prev) => (prev === date ? null : date));
+
+  // ── Multi-stop trip ──────────────────────────────────────────────
+  if (activeTrip.stops?.length) {
+    const anyData = stopForecasts?.some((sf) => sf.days.length > 0);
+
+    const cardBase = { background: colors.surface, border: `1px solid ${colors.surfaceBorder}`, borderRadius: 14, overflow: "hidden", marginBottom: 14 };
+    const header = (
+      <div style={{ padding: "11px 14px 8px", borderBottom: `1px solid ${colors.surfaceBorder}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ color: colors.text, fontWeight: 700, fontSize: 14 }}>☁️ Weersvoorspelling per stop</span>
+      </div>
+    );
+
+    if (status === "loading") {
+      return (
+        <div style={cardBase}>
+          {header}
+          <div style={{ padding: "12px 14px" }}>
+            <span style={{ color: colors.textMuted, fontSize: 13 }}>Weersdata laden…</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (!anyData) {
+      const avail = new Date(activeTrip.startDate + "T00:00:00");
+      avail.setDate(avail.getDate() - 14);
+      const months = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+      const availStr = `${avail.getDate()} ${months[avail.getMonth()]}`;
+      return (
+        <div style={cardBase}>
+          {header}
+          <div style={{ padding: "12px 14px" }}>
+            <span style={{ color: colors.textMuted, fontSize: 13 }}>
+              ⏳ Weersdata beschikbaar vanaf ca. <strong style={{ color: colors.text }}>{availStr}</strong> — de voorspelling gaat 14 dagen vooruit.
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <style>{`.wx-strip { scrollbar-width: none; } .wx-strip::-webkit-scrollbar { display: none; }`}</style>
+        <div style={{ ...cardBase, marginBottom: selectedDate ? 0 : 14, borderRadius: selectedDate ? "14px 14px 0 0" : 14 }}>
+          {header}
+          {stopForecasts.map(({ stop, days: stopDays }) => (
+            <StopWeatherStrip key={stop.name} stop={stop} days={stopDays} selectedDate={selectedDate} onToggle={toggle} />
+          ))}
+          <div style={{ padding: "4px 14px 10px" }}>
+            <LegendDot color={colors.sky} label="Tik dag voor details" />
+          </div>
+        </div>
+        {selectedDay && <DayDetail day={selectedDay} onClose={() => setSelectedDate(null)} />}
+      </>
+    );
+  }
+
+  // ── Single-location trip ─────────────────────────────────────────
   const tripDaysInForecast = days.filter((d) => d.isTripDay);
 
   if (status === "loading") {
@@ -392,7 +484,6 @@ export default function WeatherForecast() {
         overflow: "hidden",
         marginBottom: selectedDate ? 0 : 14,
       }}>
-        {/* Header */}
         <div style={{
           padding: "11px 14px 8px",
           borderBottom: `1px solid ${colors.surfaceBorder}`,

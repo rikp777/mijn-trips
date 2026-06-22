@@ -32,6 +32,52 @@ function buildEndpoint(trip) {
   );
 }
 
+function buildStopEndpoint(stop, isPast) {
+  const { lat, lon, startDate, endDate } = stop;
+  const tz = "Europe%2FBerlin";
+  if (isPast) {
+    return (
+      `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+      `&daily=${DAILY}&hourly=precipitation,wind_speed_10m` +
+      `&wind_speed_unit=kn&timezone=${tz}&start_date=${startDate}&end_date=${endDate}`
+    );
+  }
+  return (
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&daily=${DAILY_FORECAST}&hourly=precipitation,wind_speed_10m` +
+    `&wind_speed_unit=kn&timezone=${tz}&forecast_days=16`
+  );
+}
+
+function parseDays(json, isPastTrip, startDate, endDate) {
+  const d = json.daily;
+  const h = json.hourly;
+  return d.time.map((date, i) => {
+    const { weekday, dayMonth } = dayLabels(date);
+    const kiting = parseKitingWind(h.time, h.wind_speed_10m, date);
+    return {
+      date,
+      isPastTrip,
+      isTripDay: date >= startDate && date <= endDate,
+      weekday, dayMonth,
+      code:          d.weathercode[i],
+      emoji:         weatherEmoji(d.weathercode[i]),
+      label:         weatherLabel(d.weathercode[i]),
+      tempMax:       Math.round(d.temperature_2m_max[i]),
+      tempMin:       Math.round(d.temperature_2m_min[i]),
+      windKn:        Math.round(d.wind_speed_10m_max[i]),
+      windGust:      Math.round(d.wind_gusts_10m_max[i]),
+      windDir:       windDir(d.wind_direction_10m_dominant[i]),
+      windKitingAvg: kiting.avg,
+      windKitingMax: kiting.max,
+      precipProb:    d.precipitation_probability_max?.[i] ?? 0,
+      precipMm:      Math.round((d.precipitation_sum[i] || 0) * 10) / 10,
+      precipHours:   d.precipitation_hours[i] || 0,
+      rainWindows:   parseRainWindows(h.time, h.precipitation, date),
+    };
+  });
+}
+
 export function weatherEmoji(code) {
   if (code === 0)  return "☀️";
   if (code <= 1)   return "🌤️";
@@ -176,51 +222,67 @@ function parseRainWindows(hourlyTimes, hourlyPrecip, date) {
   }));
 }
 
+const FORECAST_WINDOW = 16;
+
+// Returns the earliest ISO date on which Open-Meteo will have data for a given start date.
+function forecastAvailableFrom(startDate) {
+  const d = new Date(startDate + "T00:00:00");
+  d.setDate(d.getDate() - FORECAST_WINDOW);
+  return d.toISOString().slice(0, 10);
+}
+
 export function useWeatherForecast(trip) {
-  const [state, setState] = useState({ status: "loading", days: [], isPastTrip: false });
+  const [state, setState] = useState({ status: "loading", days: [], isPastTrip: false, stopForecasts: null, availableFrom: null });
 
   useEffect(() => {
     if (!trip) return;
-    setState({ status: "loading", days: [], isPastTrip: false });
+    setState({ status: "loading", days: [], isPastTrip: false, stopForecasts: null, availableFrom: null });
     const today = new Date().toISOString().slice(0, 10);
     const isPastTrip = trip.endDate < today;
+
+    // Trip starts outside the 16-day forecast window — no point calling the API.
+    const windowEnd = new Date();
+    windowEnd.setDate(windowEnd.getDate() + FORECAST_WINDOW);
+    const windowEndStr = windowEnd.toISOString().slice(0, 10);
+    if (!isPastTrip && trip.startDate > windowEndStr) {
+      setState({
+        status: "too-early", days: [], isPastTrip: false, stopForecasts: null,
+        availableFrom: forecastAvailableFrom(trip.startDate),
+      });
+      return;
+    }
+
     let active = true;
 
-    fetch(buildEndpoint(trip))
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((json) => {
+    if (trip.stops?.length) {
+      Promise.all(
+        trip.stops.map((stop) => {
+          const isPastStop = stop.endDate < today;
+          return fetch(buildStopEndpoint(stop, isPastStop))
+            .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+            .then((json) => {
+              const all = parseDays(json, isPastStop, stop.startDate, stop.endDate);
+              const days = all.filter((d) => d.date >= stop.startDate && d.date <= stop.endDate);
+              return { stop, days, status: "ready" };
+            })
+            .catch(() => ({ stop, days: [], status: "error" }));
+        })
+      ).then((stopForecasts) => {
         if (!active) return;
-        const d = json.daily;
-        const h = json.hourly;
-
-        const days = d.time.map((date, i) => {
-          const { weekday, dayMonth } = dayLabels(date);
-          const kiting = parseKitingWind(h.time, h.wind_speed_10m, date);
-          return {
-            date,
-            isPastTrip,
-            isTripDay: date >= trip.startDate && date <= trip.endDate,
-            weekday, dayMonth,
-            code:          d.weathercode[i],
-            emoji:         weatherEmoji(d.weathercode[i]),
-            label:         weatherLabel(d.weathercode[i]),
-            tempMax:       Math.round(d.temperature_2m_max[i]),
-            tempMin:       Math.round(d.temperature_2m_min[i]),
-            windKn:        Math.round(d.wind_speed_10m_max[i]),
-            windGust:      Math.round(d.wind_gusts_10m_max[i]),
-            windDir:       windDir(d.wind_direction_10m_dominant[i]),
-            windKitingAvg: kiting.avg,
-            windKitingMax: kiting.max,
-            precipProb:    d.precipitation_probability_max?.[i] ?? 0,
-            precipMm:      Math.round((d.precipitation_sum[i] || 0) * 10) / 10,
-            precipHours:   d.precipitation_hours[i] || 0,
-            rainWindows:   parseRainWindows(h.time, h.precipitation, date),
-          };
-        });
-
-        setState({ status: "ready", days, isPastTrip });
-      })
-      .catch(() => active && setState({ status: "error", days: [], isPastTrip }));
+        const days = stopForecasts.flatMap((sf) => sf.days);
+        const anyReady = stopForecasts.some((sf) => sf.days.length > 0);
+        setState({ status: anyReady ? "ready" : "error", days, isPastTrip, stopForecasts });
+      });
+    } else {
+      fetch(buildEndpoint(trip))
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then((json) => {
+          if (!active) return;
+          const days = parseDays(json, isPastTrip, trip.startDate, trip.endDate);
+          setState({ status: "ready", days, isPastTrip, stopForecasts: null });
+        })
+        .catch(() => active && setState({ status: "error", days: [], isPastTrip, stopForecasts: null }));
+    }
 
     return () => { active = false; };
   }, [trip?.id]);

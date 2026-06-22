@@ -1,5 +1,14 @@
 import { colors } from "../constants/theme";
 import WindWidget from "./WindWidget";
+import { useTrip } from "../context/TripContext";
+
+const PACK_TITLE = {
+  kite:   "Paklijst Kitesurfen",
+  hike:   "Paklijst Wandelen",
+  travel: "Paklijst Reizen",
+  surf:   "Paklijst Surfen",
+  camp:   "Paklijst Kamp",
+};
 
 const pill = {
   border: "1px solid rgba(255,255,255,0.3)",
@@ -27,6 +36,8 @@ export default function Header({
   installable,
   onInstall,
 }) {
+  const { activeTrip } = useTrip();
+
   return (
     <div
       ref={innerRef}
@@ -48,12 +59,12 @@ export default function Header({
       />
       <div className="page-inner" style={{ position: "relative" }}>
         <div style={{ fontSize: 13, color: colors.accentLight, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
-          🪁 Ripstar · 4 juli · Solo roadtrip
+          {activeTrip.flag} {activeTrip.name} · Paklijst
         </div>
         <h1 style={{ color: "#fff", fontSize: 28, fontWeight: 800, margin: "0 0 4px", lineHeight: 1.2 }}>
-          Paklijst Kitesurfen
+          {PACK_TITLE[activeTrip.activities?.[0]] ?? "Paklijst"}
         </h1>
-        <div style={{ color: colors.accentSofter, fontSize: 15, marginBottom: 20 }}>Denemarken • Beginnerscursus</div>
+        <div style={{ color: colors.accentSofter, fontSize: 15, marginBottom: 20 }}>{activeTrip.subtitle}</div>
 
         <WindWidget />
 

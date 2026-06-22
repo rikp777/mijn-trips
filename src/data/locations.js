@@ -5,10 +5,37 @@
 // driveMin = estimated drive from the camp (null = this IS the camp, 0 = walking).
 // category drives the marker colour, legend and filter chips.
 
-export const FJORD_CENTER = { lat: 55.95, lon: 8.25, zoom: 11 };
+export const FJORD_CENTER = { lat: 53.8, lon: 7.5, zoom: 6 };
+
+// Route line: exact stop coordinates are used as waypoints so the line passes through them
+export const ROUTE_STOPS = [
+  { lat: 51.3288, lon:  5.9819 }, // Panningen
+  { lat: 51.3703, lon:  6.1724 }, // Venlo (DE grens)
+  { lat: 51.4704, lon:  6.8516 }, // Oberhausen
+  { lat: 51.5136, lon:  7.4653 }, // Dortmund
+  { lat: 51.9822, lon:  7.7754 }, // STOP 1: Shell Münster (~205 km)
+  { lat: 52.2703, lon:  8.0473 }, // Osnabrück
+  { lat: 53.0793, lon:  8.8017 }, // Bremen
+  { lat: 53.4724, lon:  9.8479 }, // STOP 2: Shell Hamburg-Süd (~497 km)
+  { lat: 54.7778, lon:  9.4151 }, // STOP 3: Shell Flensburg - laatste Duitse benzine (~665 km)
+  { lat: 55.4945, lon:  9.4718 }, // Kolding (routepunt)
+  { lat: 55.7256, lon:  9.5380 }, // Vejle
+  { lat: 56.1342, lon:  8.9798 }, // Herning
+  { lat: 55.8922, lon:  8.3644 }, // Ringkøbing camp
+];
+
+// Local bike day-trip: Camp → Stauning Airport → Ringkøbing (~37 km)
+export const DK_BIKE_ROUTE_STOPS = [
+  { lat: 55.89222, lon: 8.36444 }, // Ripstar kamp
+  { lat: 55.9923,  lon: 8.3463  }, // Stauning Airport
+  { lat: 56.0939,  lon: 8.2446  }, // Ringkøbing centrum
+];
 
 export const locationCategories = {
+  home:       { label: "Thuis",              color: "#6366F1" },
   camp:       { label: "Kitecamp",           color: "#0EA5E9" },
+  reststop:   { label: "Rustpauze & tanken", color: "#EF4444" },
+  bike:       { label: "Fietsroute",         color: "#22C55E" },
   kite:       { label: "Kitespot",           color: "#34D399" },
   food:       { label: "Eten & drinken",     color: "#EC4899" },
   restaurant: { label: "Restaurant",         color: "#F97316" },
@@ -24,6 +51,17 @@ const mapsLink = (lat, lon, name) =>
 const make = (loc) => ({ ...loc, maps: mapsLink(loc.lat, loc.lon, loc.name) });
 
 export const locations = [
+  // ── Thuis ──────────────────────────────────────────────────────────
+  make({
+    id: "home",
+    name: "Thuis — Panningen",
+    emoji: "🏠",
+    category: "home",
+    lat: 51.3288, lon: 5.9819,
+    driveMin: null,
+    desc: "Vertrekpunt in Panningen, Limburg. ~970 km naar het kamp via E45 Jutland (~9.5u) of ~810 km + ferry via Puttgarden (~8.5u).",
+  }),
+
   // ── Camp ───────────────────────────────────────────────────────────
   make({
     id: "camp",
@@ -88,6 +126,55 @@ export const locations = [
     lon: 8.2446,
     driveMin: 30,
     desc: "Gezellige oude steegjes, terrasjes en ijs. Leuk voor een avondje shoppen en buiten eten.",
+  }),
+
+  // ── Rustpauzes & tanken (Ford Puma 2020, 48L tank, ~6.5L/100km) ────
+  make({
+    id: "stop-munster",
+    name: "Stop 1 — Münster (A1)",
+    emoji: "☕",
+    category: "reststop",
+    lat: 51.9822, lon: 7.7754,
+    stop: "~195 km · ~2u rijden · STOP 1",
+    desc: "Eerste pauze. Toilet, koffie, uitrekken. Ford Puma: ~12.7L verbruikt, nog ~35L over (~540 km range). Benzine hier goedkoper dan in NL — optioneel alvast bijvullen.",
+  }),
+  make({
+    id: "stop-hamburg",
+    name: "Stop 2 — Hamburg (A1/A7) — TANK HIER",
+    emoji: "⛽",
+    category: "reststop",
+    lat: 53.4724, lon: 9.8479,
+    stop: "~502 km · ~5u rijden · TANK VERPLICHT",
+    desc: "Middagpauze + verplichte tankstop. Ford Puma: ~32.6L verbruikt, nog maar ~15L over (~230 km). Dit is NIET genoeg voor de rest van de rit (405 km). Vol tanken! Deens benzine is ~20ct/L duurder. Gebruik 95 E10 (benzine).",
+  }),
+  make({
+    id: "stop-flensburg",
+    name: "Stop 3 — Shell Flensburg — VOL TANKEN!",
+    emoji: "⛽",
+    category: "reststop",
+    lat: 54.7778, lon: 9.4151,
+    stop: "~665 km · ~6.5u rijden · LAATSTE DUITSE BENZINE",
+    desc: "LAATSTE KANS voor goedkope benzine! Na de grens is Deens benzine ~20ct/L duurder. Vul hier de tank HELEMAAL VOL, ook als je nog genoeg hebt. Ford Puma: van hier naar kamp is maar 249 km = 16L. Vol tanken = geen stop meer nodig in Denemarken.",
+  }),
+
+  // ── Fietsroute ──────────────────────────────────────────────────────
+  make({
+    id: "fietstrip",
+    name: "Fietsdag: kamp → Ringkøbing",
+    emoji: "🚲",
+    category: "bike",
+    lat: 55.9923, lon: 8.3463,
+    driveMin: 25,
+    desc: "Dagtrip op de fiets vanuit het kamp: langs de fjordoever → Stauning Vliegtuigmuseum → Ringkøbing (~37 km, 1 kant). Rustige wegen door polderland. Verhuur: vraag bij de kampstaf of Tourist Info Ringkøbing.",
+  }),
+  make({
+    id: "fiets-ringkobing",
+    name: "Ringkøbing — fietseindpunt",
+    emoji: "🏁",
+    category: "bike",
+    lat: 56.0939, lon: 8.2446,
+    driveMin: 30,
+    desc: "Eindpunt van de fietsdag (~37 km). Beloon jezelf: ijs in de Østergade, verse vis aan de haven of een koffie op een terrasje. Daarna dezelfde weg terug of je laten ophalen.",
   }),
 
   // ── Bezienswaardigheid ─────────────────────────────────────────────

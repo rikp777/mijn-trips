@@ -3,6 +3,7 @@ import { colors } from "../constants/theme";
 import { journalEntries } from "../data/journal";
 import { trips } from "../data/trips";
 import { useHashNav } from "../hooks/useHashNav";
+import { useTrip } from "../context/TripContext";
 import PageHero from "../components/PageHero";
 
 const NL_DAYS = ["zo","ma","di","wo","do","vr","za"];
@@ -183,8 +184,12 @@ function EmptyState({ tripId }) {
 
 export default function JournalView() {
   const { params, navigate } = useHashNav();
-  const filterTripId = params.get("filter") || null;
-  const setFilterTripId = (id) => navigate({ filter: id || null });
+  const { activeTrip } = useTrip();
+
+  // "filter=all" → show every trip; absent/unset → default to active trip; "filter=<id>" → that trip
+  const filterParam = params.get("filter");
+  const filterTripId = filterParam === "all" ? null : (filterParam || activeTrip.id);
+  const setFilterTripId = (id) => navigate({ filter: id === null ? "all" : id });
 
   const sorted = [...journalEntries].sort((a, b) => {
     const dateCmp = b.date.localeCompare(a.date);
@@ -216,7 +221,7 @@ export default function JournalView() {
           <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
             <FilterChip
               label="Alle trips"
-              active={!filterTripId}
+              active={filterParam === "all"}
               onClick={() => setFilterTripId(null)}
             />
             {tripsWithEntries.map((trip) => (
