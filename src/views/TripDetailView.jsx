@@ -359,24 +359,13 @@ export default function TripDetailView({ onBack, onNavigate }) {
         eyebrow={`${activeTrip.flag ?? activeTrip.emoji} ${activeTrip.subtitle}`}
         title={activeTrip.name}
         subtitle={formatDateRange(activeTrip.startDate, activeTrip.endDate)}
+        onBack={onBack}
+        backLabel="← Alle trips"
       >
         <WindWidget />
       </PageHero>
 
       <div className="page-content">
-        {/* Back button */}
-        <button
-          onClick={onBack}
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background: "none", border: "none", cursor: "pointer",
-            color: colors.sky, fontSize: 13, fontWeight: 700,
-            padding: "0 0 14px", marginLeft: -2,
-          }}
-        >
-          ← Alle trips
-        </button>
-
         <TripCountdownCard />
 
         <div className="home-grid-2">
