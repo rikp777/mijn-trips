@@ -120,7 +120,7 @@ export default function SideNav({ active, onChange, tripDetailOpen, onTripSelect
         <div style={{ fontSize: 10, fontWeight: 700, color: colors.textMuted, letterSpacing: "0.06em", textTransform: "uppercase", padding: "0 6px 8px" }}>
           Navigatie
         </div>
-        {TABS.map((tab) => {
+        {TABS.filter((t) => (activeTrip.tabs ?? TABS.map((x) => x.id)).includes(t.id)).map((tab) => {
           const isActive = active === tab.id;
           return (
             <button

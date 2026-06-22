@@ -1,7 +1,9 @@
-import { useState, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { font, colors } from "./constants/theme";
 import { useToast } from "./hooks/useToast";
 import { useBreakpoint } from "./hooks/useBreakpoint";
+import { useHashNav } from "./hooks/useHashNav";
+import { useTrip } from "./context/TripContext";
 
 import Toast from "./components/Toast";
 import BottomNav from "./components/BottomNav";
@@ -14,27 +16,51 @@ import TripDetailView from "./views/TripDetailView";
 import PackingView from "./views/PackingView";
 import JournalView from "./views/JournalView";
 
-// The map pulls in Leaflet — load it only when the Kaart tab is opened.
 const MapView = lazy(() => import("./components/MapView"));
 
 export default function App() {
-  const [tab, setTab] = useState("home");
-  const [tripDetail, setTripDetail] = useState(true);
-  const [mapFocus, setMapFocus] = useState(null);
+  const { params, navigate } = useHashNav();
+  const { activeTrip } = useTrip();
   const { toast, showToast } = useToast();
   const isDesktop = useBreakpoint();
 
+  const tab        = params.get("tab") ?? "home";
+  const tripDetail = params.get("detail") === "1";
+
+  // Bootstrap URL on first visit (no hash at all)
+  useEffect(() => {
+    if (!params.has("tab")) {
+      navigate({ tab: "home", detail: "1" }, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Redirect to home if the active trip doesn't support the current tab
+  const allowedTabs = activeTrip.tabs ?? ["home", "journal", "pack", "day", "map"];
+  useEffect(() => {
+    if (tab !== "home" && !allowedTabs.includes(tab)) {
+      navigate({ tab: "home", detail: "1" }, { replace: true });
+    }
+  }, [activeTrip.id, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setTab = (newTab) => navigate({ tab: newTab });
+
   const handleFocusMap = (locationId) => {
-    setMapFocus(locationId);
-    setTab("map");
+    navigate({ tab: "map" });
+    // mapFocus is passed via context or prop; for now keep the state local
+    window._mapFocus = locationId;
   };
 
   function TabContent() {
     if (tab === "home") {
       if (tripDetail) {
-        return <TripDetailView onBack={() => setTripDetail(false)} onNavigate={(t) => { setTab(t); setTripDetail(false); }} />;
+        return (
+          <TripDetailView
+            onBack={() => navigate({ detail: null })}
+            onNavigate={(t) => navigate({ tab: t, detail: null })}
+          />
+        );
       }
-      return <HomeView onOpenTrip={() => setTripDetail(true)} />;
+      return <HomeView onOpenTrip={() => navigate({ detail: "1" })} />;
     }
 
     if (tab === "journal") return <JournalView />;
@@ -57,7 +83,7 @@ export default function App() {
         <PageHero eyebrow="🪁 Ripstar · West-Jutland" title="Kaart & uitjes" subtitle="Waar het kamp ligt + leuke plekken in de buurt" />
         <div className="page-content">
           <Suspense fallback={<p style={{ color: colors.textMuted, textAlign: "center", padding: 40 }}>🗺️ Kaart laden…</p>}>
-            <MapView focus={mapFocus} />
+            <MapView focus={window._mapFocus} />
           </Suspense>
         </div>
       </>
@@ -74,8 +100,8 @@ export default function App() {
           active={tab}
           onChange={setTab}
           tripDetailOpen={tripDetail}
-          onTripSelect={() => { setTab("home"); setTripDetail(true); }}
-          onShowOverview={() => { setTab("home"); setTripDetail(false); }}
+          onTripSelect={() => navigate({ tab: "home", detail: "1" })}
+          onShowOverview={() => navigate({ tab: "home", detail: null })}
         />
         <div style={{ flex: 1, minWidth: 0, overflowX: "hidden" }}>
           <TabContent />

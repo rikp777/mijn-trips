@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { colors } from "../constants/theme";
 import { journalEntries } from "../data/journal";
 import { trips } from "../data/trips";
+import { useHashNav } from "../hooks/useHashNav";
 import PageHero from "../components/PageHero";
 
 const NL_DAYS = ["zo","ma","di","wo","do","vr","za"];
@@ -181,7 +181,9 @@ function EmptyState({ tripId }) {
 // ── Main view ─────────────────────────────────────────────────────
 
 export default function JournalView() {
-  const [filterTripId, setFilterTripId] = useState(null);
+  const { params, navigate } = useHashNav();
+  const filterTripId = params.get("filter") || null;
+  const setFilterTripId = (id) => navigate({ filter: id || null });
 
   const sorted = [...journalEntries].sort((a, b) => {
     const dateCmp = b.date.localeCompare(a.date);

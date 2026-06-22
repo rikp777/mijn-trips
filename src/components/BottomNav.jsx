@@ -1,4 +1,5 @@
 import { colors } from "../constants/theme";
+import { useTrip } from "../context/TripContext";
 
 export const TABS = [
   { id: "home",    label: "Home",    emoji: "🏠" },
@@ -8,8 +9,14 @@ export const TABS = [
   { id: "map",     label: "Kaart",   emoji: "🗺️" },
 ];
 
-/** Fixed bottom tab bar — the primary mobile navigation. */
+const ALL_TAB_IDS = TABS.map((t) => t.id);
+
+/** Fixed bottom tab bar — shows only tabs relevant to the active trip. */
 export default function BottomNav({ active, onChange }) {
+  const { activeTrip } = useTrip();
+  const allowed = activeTrip.tabs ?? ALL_TAB_IDS;
+  const visible = TABS.filter((t) => allowed.includes(t.id));
+
   return (
     <nav
       style={{
@@ -25,7 +32,7 @@ export default function BottomNav({ active, onChange }) {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {TABS.map((tab) => {
+      {visible.map((tab) => {
         const isActive = active === tab.id;
         return (
           <button

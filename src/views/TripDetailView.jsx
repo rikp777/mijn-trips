@@ -9,6 +9,7 @@ import { todoItems } from "../data/todoItems";
 import PageHero from "../components/PageHero";
 import WindWidget from "../components/WindWidget";
 import WeatherForecast from "../components/WeatherForecast";
+import { Card, CardTitle, StatRow } from "../components/Card";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -32,31 +33,6 @@ function useTripPhase(startDate, endDate) {
     return { phase: "during", dayOfTrip: Math.round((now - new Date(startDate + "T00:00:00")) / 86400000) + 1, totalDays };
   }
   return { phase: "after" };
-}
-
-// ── Shared ───────────────────────────────────────────────────────
-
-function Card({ children, style, onClick }) {
-  return (
-    <div onClick={onClick} style={{
-      background: colors.surface,
-      border: `1px solid ${colors.surfaceBorder}`,
-      borderRadius: 14,
-      padding: "14px 16px",
-      cursor: onClick ? "pointer" : undefined,
-      ...style,
-    }}>
-      {children}
-    </div>
-  );
-}
-
-function CardTitle({ emoji, children }) {
-  return (
-    <div style={{ fontSize: 11, fontWeight: 700, color: colors.textMuted, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 10 }}>
-      {emoji} {children}
-    </div>
-  );
 }
 
 // ── Countdown ────────────────────────────────────────────────────
@@ -154,15 +130,6 @@ function SunWaterCard() {
         </div>
       )}
     </Card>
-  );
-}
-
-function StatRow({ emoji, label, value, color }) {
-  return (
-    <div>
-      <div style={{ fontSize: 10, color: colors.textMuted, marginBottom: 1 }}>{emoji} {label}</div>
-      <div style={{ fontSize: 15, fontWeight: 800, color: color || colors.text }}>{value}</div>
-    </div>
   );
 }
 

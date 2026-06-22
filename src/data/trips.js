@@ -18,6 +18,9 @@ export const trips = [
     emoji: "🪁",
     flag: "🇩🇰",
     activities: ["kite"],
+    // tabs: which bottom-nav tabs are available for this trip.
+    // Remove "day" or "map" if that trip has no schedule / map data.
+    tabs: ["home", "journal", "pack", "day", "map"],
     // Camp / weather location
     lat: 55.892,
     lon: 8.364,
@@ -36,6 +39,7 @@ export const trips = [
     emoji: "🪁",
     flag: "🇪🇸",
     activities: ["kite"],
+    tabs: ["home", "journal", "pack"],
     lat: 36.014,
     lon: -5.603,
     startDate: "2025-06-07",
