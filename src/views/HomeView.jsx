@@ -78,18 +78,17 @@ function CountdownStrip({ targetDate, label, color }) {
       display: "flex", alignItems: "baseline", gap: 0,
       padding: "8px 14px 9px",
       borderTop: `1px solid ${colors.surfaceBorder}`,
-      background: `${color}06`,
     }}>
       {parts.map(({ val, unit }, i) => (
         <span key={unit} style={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-          {i > 0 && <span style={{ color: colors.surfaceBorder, margin: "0 4px", fontWeight: 300 }}>·</span>}
-          <span style={{ fontSize: 17, fontWeight: 800, color, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em" }}>
+          {i > 0 && <span style={{ color: colors.surfaceBorder, margin: "0 5px", fontWeight: 300 }}>·</span>}
+          <span style={{ fontSize: 17, fontWeight: 800, color: colors.text, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em" }}>
             {pad(val)}
           </span>
           <span style={{ fontSize: 10, color: colors.textMuted, fontWeight: 600, marginLeft: 2 }}>{unit}</span>
         </span>
       ))}
-      <span style={{ marginLeft: "auto", fontSize: 10, color: colors.textMuted, fontWeight: 600 }}>{label}</span>
+      <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color }}>{label}</span>
     </div>
   );
 }
