@@ -23,21 +23,20 @@ export const trips = [
     windLon: 8.13,
   },
 
-  // ── Template for future trips ────────────────────────────────────────────────
-  // {
-  //   id: "tarifa-2027",
-  //   name: "Tarifa Kite School",
-  //   subtitle: "Tarifa, Spanje",
-  //   emoji: "🪁",
-  //   flag: "🇪🇸",
-  //   lat: 36.014,
-  //   lon: -5.603,
-  //   startDate: "2027-06-01",
-  //   endDate: "2027-06-08",
-  //   windSpotName: "Tarifa, ES",
-  //   windLat: 36.014,
-  //   windLon: -5.603,
-  // },
+  {
+    id: "tarifa-test-2025",
+    name: "Tarifa Test Trip",
+    subtitle: "Tarifa, Spanje",
+    emoji: "🪁",
+    flag: "🇪🇸",
+    lat: 36.014,
+    lon: -5.603,
+    startDate: "2025-06-07",
+    endDate: "2025-06-14",
+    windSpotName: "Tarifa, ES",
+    windLat: 36.014,
+    windLon: -5.603,
+  },
 ];
 
 // Returns the most relevant trip to show by default:
