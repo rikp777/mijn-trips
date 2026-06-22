@@ -4,42 +4,54 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { usePackingList } from "../hooks/usePackingList";
 import { useRiseSet } from "../hooks/useRiseSet";
 import { useMarineData } from "../hooks/useMarineData";
+import { useTrip } from "../context/TripContext";
 import { todoItems } from "../data/todoItems";
 import PageHero from "../components/PageHero";
 import WindWidget from "../components/WindWidget";
 import WeatherForecast from "../components/WeatherForecast";
 
-// ── Trip status ──────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────
 
-const TRIP_START_STR = "2026-07-04";
-const TRIP_END_STR   = "2026-07-11";
+function formatDateRange(startDate, endDate) {
+  const s = new Date(startDate + "T12:00:00");
+  const e = new Date(endDate   + "T12:00:00");
+  const months = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+  if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear())
+    return `${s.getDate()}–${e.getDate()} ${months[s.getMonth()]} ${s.getFullYear()}`;
+  return `${s.getDate()} ${months[s.getMonth()]} – ${e.getDate()} ${months[e.getMonth()]} ${s.getFullYear()}`;
+}
 
-function useTripStatus() {
+function useTripPhase(startDate, endDate) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const todayStr = now.toISOString().slice(0, 10);
-  if (todayStr < TRIP_START_STR) {
-    const daysUntil = Math.round((new Date(TRIP_START_STR + "T00:00:00") - now) / 86400000);
+  if (todayStr < startDate) {
+    const daysUntil = Math.round((new Date(startDate + "T00:00:00") - now) / 86400000);
     return { phase: "before", daysUntil };
   }
-  if (todayStr <= TRIP_END_STR) {
-    const dayOfTrip = Math.round((now - new Date(TRIP_START_STR + "T00:00:00")) / 86400000) + 1;
-    return { phase: "during", dayOfTrip };
+  if (todayStr <= endDate) {
+    const dayOfTrip = Math.round((now - new Date(startDate + "T00:00:00")) / 86400000) + 1;
+    const totalDays = Math.round((new Date(endDate + "T00:00:00") - new Date(startDate + "T00:00:00")) / 86400000) + 1;
+    return { phase: "during", dayOfTrip, totalDays };
   }
   return { phase: "after" };
 }
 
 // ── Shared helpers ───────────────────────────────────────────────
 
-function Card({ children, style }) {
+function Card({ children, style, onClick }) {
   return (
-    <div style={{
-      background: colors.surface,
-      border: `1px solid ${colors.surfaceBorder}`,
-      borderRadius: 14,
-      padding: "14px 16px",
-      ...style,
-    }}>
+    <div
+      onClick={onClick}
+      style={{
+        background: colors.surface,
+        border: `1px solid ${colors.surfaceBorder}`,
+        borderRadius: 14,
+        padding: "14px 16px",
+        cursor: onClick ? "pointer" : undefined,
+        ...style,
+      }}
+    >
       {children}
     </div>
   );
@@ -53,21 +65,61 @@ function CardTitle({ emoji, children }) {
   );
 }
 
+// ── Trip switcher ────────────────────────────────────────────────
+
+function TripSwitcher() {
+  const { trips, activeTrip, setActiveTripId } = useTrip();
+  if (trips.length <= 1) return null;
+
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+      {trips.map((t) => {
+        const isActive = t.id === activeTrip.id;
+        const today = new Date().toISOString().slice(0, 10);
+        const isPast = t.endDate < today;
+        return (
+          <button
+            key={t.id}
+            onClick={() => setActiveTripId(t.id)}
+            style={{
+              flexShrink: 0,
+              padding: "6px 14px",
+              borderRadius: 20,
+              border: `1.5px solid ${isActive ? colors.sky : colors.surfaceBorder}`,
+              background: isActive ? `${colors.sky}18` : colors.surface,
+              color: isActive ? colors.sky : colors.textBody,
+              fontSize: 12, fontWeight: 700, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            {t.flag} {t.name}
+            <span style={{ fontSize: 10, fontWeight: 600, color: isActive ? colors.sky : colors.textMuted }}>
+              {isPast ? "✓" : new Date(t.startDate).getFullYear()}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── 1. Trip countdown ────────────────────────────────────────────
 
 function TripCountdownCard() {
-  const status = useTripStatus();
+  const { activeTrip } = useTrip();
+  const status = useTripPhase(activeTrip.startDate, activeTrip.endDate);
+  const dateStr = formatDateRange(activeTrip.startDate, activeTrip.endDate);
 
   let headline, sub;
   if (status.phase === "before") {
     headline = status.daysUntil === 1 ? "Morgen vertrek je! 🚗" : `Nog ${status.daysUntil} dagen tot vertrek`;
-    sub = "4–11 juli 2026 · Ringkøbing Fjord, Denemarken";
+    sub = `${dateStr} · ${activeTrip.subtitle}`;
   } else if (status.phase === "during") {
-    headline = `Dag ${status.dayOfTrip} van het kamp! 🪁`;
-    sub = "Je kitet nu bij Ringkøbing Fjord — geniet ervan!";
+    headline = `Dag ${status.dayOfTrip} van het kamp! ${activeTrip.emoji}`;
+    sub = `Je kitet nu bij ${activeTrip.subtitle} — geniet ervan!`;
   } else {
-    headline = "Kamp afgerond — tot volgend jaar! 🏄";
-    sub = "4–11 juli 2026 · Ringkøbing Fjord";
+    headline = `Kamp afgerond ${activeTrip.emoji}`;
+    sub = `${dateStr} · ${activeTrip.subtitle}`;
   }
 
   return (
@@ -85,7 +137,7 @@ function TripCountdownCard() {
       {status.phase === "during" && (
         <div style={{ textAlign: "center", flexShrink: 0 }}>
           <div style={{ fontSize: 28, fontWeight: 900, color: "#34D399", lineHeight: 1 }}>{status.dayOfTrip}</div>
-          <div style={{ fontSize: 9, fontWeight: 700, color: colors.textMuted, letterSpacing: "0.05em", textTransform: "uppercase" }}>van 8</div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: colors.textMuted, letterSpacing: "0.05em", textTransform: "uppercase" }}>van {status.totalDays}</div>
         </div>
       )}
     </Card>
@@ -97,11 +149,10 @@ function TripCountdownCard() {
 function PackingProgressCard({ onNavigate }) {
   const { progress } = usePackingList(true);
   const remaining = progress.total - progress.done;
-
   const barColor = progress.complete ? "#34D399" : progress.pct > 60 ? "#F59E0B" : colors.sky;
 
   return (
-    <Card style={{ cursor: "pointer" }} onClick={() => onNavigate("pack")}>
+    <Card onClick={() => onNavigate("pack")}>
       <CardTitle emoji="🎒">Paklijst</CardTitle>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
         <span style={{ fontSize: 22, fontWeight: 900, color: colors.text }}>{progress.pct}%</span>
@@ -120,10 +171,14 @@ function PackingProgressCard({ onNavigate }) {
 // ── 3. Sunrise / sunset + water temperature ──────────────────────
 
 function SunWaterCard() {
-  const { status: riseStatus, today: sun } = useRiseSet();
-  const { status: marineStatus, todayTemp, tripAvg } = useMarineData();
-
+  const { activeTrip } = useTrip();
+  const { status: riseStatus, today: sun } = useRiseSet(activeTrip);
+  const { status: marineStatus, todayTemp, tripAvg } = useMarineData(activeTrip);
   const loading = riseStatus === "loading" || marineStatus === "loading";
+
+  const today = new Date().toISOString().slice(0, 10);
+  const isPast = activeTrip.endDate < today;
+  const tripDateLabel = formatDateRange(activeTrip.startDate, activeTrip.endDate);
 
   return (
     <Card>
@@ -132,10 +187,10 @@ function SunWaterCard() {
         <span style={{ fontSize: 12, color: colors.textMuted }}>Laden…</span>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 16px" }}>
-          <StatRow emoji="🌄" label="Zonsopgang" value={sun?.rise ?? "–"} />
+          <StatRow emoji="🌄" label={isPast ? `Zonsopgang (${activeTrip.startDate.slice(8)} ${["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"][parseInt(activeTrip.startDate.slice(5,7))-1]})` : "Zonsopgang"} value={sun?.rise ?? "–"} />
           <StatRow emoji="🌊" label="Watertemp nu" value={todayTemp != null ? `${todayTemp}°C` : "–"} color="#60A5FA" />
           <StatRow emoji="🌇" label="Zonsondergang" value={sun?.set ?? "–"} />
-          <StatRow emoji="🏕️" label="Trip week gem." value={tripAvg != null ? `${tripAvg}°C` : "–"} color="#60A5FA" />
+          <StatRow emoji="🏕️" label={`Gem. trip (${tripDateLabel.slice(0, 5)})`} value={tripAvg != null ? `${tripAvg}°C` : "–"} color="#60A5FA" />
           {sun?.daylight && (
             <StatRow emoji="☀️" label="Daglicht" value={sun.daylight} color="#F59E0B" />
           )}
@@ -178,12 +233,9 @@ function PreTripTodoCard() {
           {done}/{total}
         </span>
       </div>
-
-      {/* Progress bar */}
       <div style={{ background: colors.surfaceBorder, borderRadius: 99, height: 4, marginBottom: 12 }}>
         <div style={{ background: allDone ? "#34D399" : colors.sky, borderRadius: 99, height: 4, width: `${Math.round((done / total) * 100)}%`, transition: "width 0.3s" }} />
       </div>
-
       {allDone && !showAll ? (
         <div style={{ fontSize: 13, color: "#34D399", textAlign: "center", padding: "6px 0" }}>
           🎉 Alles geregeld — je bent klaar voor vertrek!
@@ -200,7 +252,6 @@ function PreTripTodoCard() {
           )}
         </>
       )}
-
       <button
         onClick={() => setShowAll((v) => !v)}
         style={{ background: "none", border: "none", cursor: "pointer", color: colors.sky, fontSize: 12, fontWeight: 600, padding: "6px 0 0", display: "block" }}
@@ -243,17 +294,11 @@ const CAMP_MAPS = "https://maps.google.com/?daddr=55.89222,8.36444";
 
 const ROUTES = [
   {
-    emoji: "🛣️",
-    label: "Via E45 Jutland",
-    tag: "Aanbevolen",
-    tagColor: "#34D399",
+    emoji: "🛣️", label: "Via E45 Jutland", tag: "Aanbevolen", tagColor: "#34D399",
     lines: ["~970 km · ~9.5u", "Geen tol · Geen ferry", "Hamburg → Flensburg → Kolding → Ringkøbing"],
   },
   {
-    emoji: "⛴️",
-    label: "Via Puttgarden ferry",
-    tag: "Kortste",
-    tagColor: "#F59E0B",
+    emoji: "⛴️", label: "Via Puttgarden ferry", tag: "Kortste", tagColor: "#F59E0B",
     lines: ["~810 km + 45 min ferry", "Ferry ~€70–100 · Geen brug-tol", "Hamburg → Puttgarden → Rødby → Ringkøbing"],
   },
 ];
@@ -355,11 +400,9 @@ function DanishPhrasesCard() {
     <Card style={{ marginBottom: 14 }}>
       <CardTitle emoji="🇩🇰">Handig Deens</CardTitle>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0", marginBottom: 8 }}>
-        {/* Header */}
         {["Nederlands", "Deens / Uitspraak"].map((h) => (
           <div key={h} style={{ fontSize: 10, fontWeight: 700, color: colors.textMuted, padding: "0 0 6px", letterSpacing: "0.03em" }}>{h}</div>
         ))}
-        {/* Rows */}
         {shown.map((p) => (
           <>
             <div key={p.nl + "nl"} style={{ fontSize: 12, color: colors.textBody, padding: "5px 8px 5px 0", borderTop: `1px solid ${colors.surfaceBorder}`, lineHeight: 1.3 }}>{p.nl}</div>
@@ -383,37 +426,40 @@ function DanishPhrasesCard() {
 // ── Main view ────────────────────────────────────────────────────
 
 export default function HomeView({ onNavigate }) {
+  const { activeTrip } = useTrip();
+  // Show Denmark-specific content only for the DK trip
+  const isDKTrip = activeTrip.id === "ripstar-dk-2026";
+
   return (
     <>
-      <PageHero eyebrow="🪁 Ripstar · Denemarken" title="Dashboard" subtitle="Jouw kitesurf tripplanner">
+      <PageHero eyebrow={`${activeTrip.emoji} ${activeTrip.name}`} title="Dashboard" subtitle={activeTrip.subtitle}>
         <WindWidget />
       </PageHero>
 
       <div className="page-content">
+        <TripSwitcher />
         <TripCountdownCard />
 
-        {/* Row: packing progress + sun/water */}
         <div className="home-grid-2">
           <PackingProgressCard onNavigate={onNavigate} />
           <SunWaterCard />
         </div>
 
-        {/* Pre-trip checklist */}
         <PreTripTodoCard />
 
-        {/* Full-width weather forecast */}
         <WeatherForecast />
 
-        {/* Row: drive info + emergency */}
-        <div className="home-grid-2" style={{ marginTop: 14 }}>
-          <DriveInfoCard />
-          <EmergencyInfoCard />
-        </div>
-
-        {/* Danish phrases */}
-        <div style={{ marginTop: 14 }}>
-          <DanishPhrasesCard />
-        </div>
+        {isDKTrip && (
+          <>
+            <div className="home-grid-2" style={{ marginTop: 14 }}>
+              <DriveInfoCard />
+              <EmergencyInfoCard />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <DanishPhrasesCard />
+            </div>
+          </>
+        )}
       </div>
     </>
   );

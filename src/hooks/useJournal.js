@@ -1,16 +1,14 @@
 import { useLocalStorage } from "./useLocalStorage";
-
-const JOURNAL_KEY = "kite_journal_v1";
+import { useTrip } from "../context/TripContext";
 
 export function useJournal() {
-  const [journal, setJournal] = useLocalStorage(JOURNAL_KEY, {});
+  const { activeTrip } = useTrip();
+  const key = `kite_journal_v2_${activeTrip.id}`;
+  const [journal, setJournal] = useLocalStorage(key, {});
 
-  const getNote = (date) => journal[date] ?? "";
-
-  const setNote = (date, text) =>
-    setJournal((prev) => ({ ...prev, [date]: text }));
-
-  const hasNote = (date) => !!journal[date]?.trim();
+  const getNote  = (date)       => journal[date] ?? "";
+  const setNote  = (date, text) => setJournal((prev) => ({ ...prev, [date]: text }));
+  const hasNote  = (date)       => !!journal[date]?.trim();
 
   return { getNote, setNote, hasNote };
 }

@@ -1,9 +1,11 @@
-import { colors, KITE_SPOT } from "../constants/theme";
+import { colors } from "../constants/theme";
 import { useWindForecast, windDirLabel, windVerdict } from "../hooks/useWindForecast";
+import { useTrip } from "../context/TripContext";
 
-/** Live wind at the kite spot — the kitesurfer's "should I go?" glance. */
+/** Live wind at the active trip's kite spot. */
 export default function WindWidget() {
-  const { status, data } = useWindForecast();
+  const { activeTrip } = useTrip();
+  const { status, data } = useWindForecast(activeTrip);
 
   const shell = (children) => (
     <div
@@ -29,7 +31,7 @@ export default function WindWidget() {
   if (status === "error" || !data) {
     return shell(
       <span style={{ color: colors.accentSofter, fontSize: 13 }}>
-        🌬️ Wind offline — check je wind-app voor {KITE_SPOT.name}
+        🌬️ Wind offline — check je wind-app voor {activeTrip.windSpotName}
       </span>
     );
   }
@@ -59,7 +61,7 @@ export default function WindWidget() {
           {verdict.emoji} {verdict.label}
         </div>
         <div style={{ color: colors.accentSofter, fontSize: 12 }}>
-          {KITE_SPOT.name} · {windDirLabel(data.dir)} wind · {data.temp}°C
+          {activeTrip.windSpotName} · {windDirLabel(data.dir)} wind · {data.temp}°C
         </div>
       </div>
       <div style={{ width: 8, height: 8, borderRadius: 99, background: verdict.color, flexShrink: 0 }} />

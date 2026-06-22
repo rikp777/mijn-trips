@@ -1,128 +1,128 @@
 import { useState, useEffect } from "react";
 
-// Camp coordinates (Skaven Strand Put & Take)
-const LAT = 55.892;
-const LON = 8.364;
-
 const DAILY =
   "weathercode,temperature_2m_max,temperature_2m_min," +
-  "precipitation_sum,precipitation_hours,precipitation_probability_max," +
+  "precipitation_sum,precipitation_hours," +
   "wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant";
 
-const ENDPOINT =
-  `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
-  `&daily=${DAILY}&hourly=precipitation,wind_speed_10m` +
-  `&wind_speed_unit=kn&timezone=Europe%2FCopenhagen&forecast_days=16`;
-
-export const TRIP_START = "2026-07-04";
-export const TRIP_END   = "2026-07-11";
+// Forecast API also carries precipitation probability; archive API does not.
+const DAILY_FORECAST = DAILY + ",precipitation_probability_max";
 
 const DIRS = ["N", "NO", "O", "ZO", "Z", "ZW", "W", "NW"];
 const NL_DAYS = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 
+function buildEndpoint(trip) {
+  const today = new Date().toISOString().slice(0, 10);
+  const isPast = trip.endDate < today;
+  const { lat, lon } = trip;
+  const tz = "Europe%2FCopenhagen";
+
+  if (isPast) {
+    return (
+      `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+      `&daily=${DAILY}&hourly=precipitation,wind_speed_10m` +
+      `&wind_speed_unit=kn&timezone=${tz}` +
+      `&start_date=${trip.startDate}&end_date=${trip.endDate}`
+    );
+  }
+  return (
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&daily=${DAILY_FORECAST}&hourly=precipitation,wind_speed_10m` +
+    `&wind_speed_unit=kn&timezone=${tz}&forecast_days=16`
+  );
+}
+
 export function weatherEmoji(code) {
-  if (code === 0)   return "☀️";
-  if (code <= 1)    return "🌤️";
-  if (code <= 2)    return "⛅";
-  if (code <= 3)    return "☁️";
-  if (code <= 48)   return "🌫️";
-  if (code <= 55)   return "🌦️";
-  if (code <= 65)   return "🌧️";
-  if (code <= 77)   return "❄️";
-  if (code <= 82)   return "🌦️";
-  if (code <= 86)   return "🌨️";
+  if (code === 0)  return "☀️";
+  if (code <= 1)   return "🌤️";
+  if (code <= 2)   return "⛅";
+  if (code <= 3)   return "☁️";
+  if (code <= 48)  return "🌫️";
+  if (code <= 55)  return "🌦️";
+  if (code <= 65)  return "🌧️";
+  if (code <= 77)  return "❄️";
+  if (code <= 82)  return "🌦️";
+  if (code <= 86)  return "🌨️";
   return "⛈️";
 }
 
 export function weatherLabel(code) {
-  if (code === 0)   return "Helder";
-  if (code <= 1)    return "Overwegend helder";
-  if (code <= 2)    return "Halfbewolkt";
-  if (code <= 3)    return "Bewolkt";
-  if (code <= 48)   return "Mist";
-  if (code <= 55)   return "Motregen";
-  if (code <= 65)   return "Regen";
-  if (code <= 77)   return "Sneeuw";
-  if (code <= 82)   return "Buien";
-  if (code <= 86)   return "Sneeuwbuien";
+  if (code === 0)  return "Helder";
+  if (code <= 1)   return "Overwegend helder";
+  if (code <= 2)   return "Halfbewolkt";
+  if (code <= 3)   return "Bewolkt";
+  if (code <= 48)  return "Mist";
+  if (code <= 55)  return "Motregen";
+  if (code <= 65)  return "Regen";
+  if (code <= 77)  return "Sneeuw";
+  if (code <= 82)  return "Buien";
+  if (code <= 86)  return "Sneeuwbuien";
   return "Onweer";
 }
 
 export function windVerdict(kn) {
-  if (kn < 8)    return { label: "Te weinig",    color: "#64748B", emoji: "😴" };
-  if (kn < 12)   return { label: "Marginaal",    color: "#F59E0B", emoji: "🌬️" };
-  if (kn <= 22)  return { label: "Prima! 🪁",    color: "#34D399", emoji: "🪁" };
-  if (kn <= 28)  return { label: "Stevig",        color: "#F97316", emoji: "💨" };
-  return           { label: "Gevaarlijk",         color: "#EF4444", emoji: "⚠️" };
+  if (kn < 8)   return { label: "Te weinig",  color: "#64748B", emoji: "😴" };
+  if (kn < 12)  return { label: "Marginaal",  color: "#F59E0B", emoji: "🌬️" };
+  if (kn <= 22) return { label: "Prima! 🪁",  color: "#34D399", emoji: "🪁" };
+  if (kn <= 28) return { label: "Stevig",     color: "#F97316", emoji: "💨" };
+  return          { label: "Gevaarlijk",      color: "#EF4444", emoji: "⚠️" };
 }
 
-// Session verdict for camp days: should the kite school run lessons?
-// Based on kiting-hours wind (09:00–18:00 average & max) and weather code.
 export function sessionVerdict(day) {
-  const { windKitingAvg: avg, windKitingMax: max, windGust, code, windDir } = day;
+  const { windKitingAvg: avg, windKitingMax: max, windGust, code, windDir, isPastTrip } = day;
+  const past = isPastTrip;
 
-  // Thunderstorm = hard cancel regardless of wind
   if (code >= 95) {
     return {
-      status: "cancel",
-      emoji: "⛈️",
-      short: "Waarschijnlijk geannuleerd",
-      reason: "Onweer verwacht — kiten bij een onweersbui is levensgevaarlijk. De les wordt door Ripstar geannuleerd.",
-      color: "#EF4444",
+      status: "cancel", emoji: "⛈️", color: "#EF4444",
+      short: past ? "Was: onweer" : "Waarschijnlijk geannuleerd",
+      reason: past
+        ? `Er was onweer — lessen zijn die dag niet doorgegaan.`
+        : `Onweer verwacht — kiten bij een bui is levensgevaarlijk. Les wordt door Ripstar geannuleerd.`,
     };
   }
-
-  // Too little wind during kiting hours
   if (avg < 8) {
     return {
-      status: "cancel",
-      emoji: "😴",
-      short: "Kans op annulering — te weinig wind",
-      reason: `Gemiddeld slechts ${avg}kn tijdens lesuren (09–18u). De vlieger heeft te weinig kracht om je van de grond te krijgen. Verwacht theorieavond of vrije dag.`,
-      color: "#64748B",
+      status: "cancel", emoji: "😴", color: "#64748B",
+      short: past ? `Was: te weinig wind (${avg}kn)` : "Kans op annulering — te weinig wind",
+      reason: past
+        ? `Gemiddeld slechts ${avg}kn tijdens lesuren. Lessen zijn waarschijnlijk omgezet naar theorie of vrije dag.`
+        : `Gemiddeld slechts ${avg}kn tijdens lesuren (09–18u). Verwacht theorieavond of vrije dag.`,
     };
   }
-
-  // Way too much wind: dangerous for beginners
   if (max > 30 || windGust > 38) {
     return {
-      status: "cancel",
-      emoji: "🌀",
-      short: "Kans op annulering — wind te hard",
-      reason: `Piekwind van ${max}kn (gusts ${windGust}kn) tijdens lesuren. Veel te gevaarlijk voor beginners. Instructeur beslist 's ochtends — verwacht geen waterles.`,
-      color: "#EF4444",
+      status: "cancel", emoji: "🌀", color: "#EF4444",
+      short: past ? `Was: te hard (${max}kn)` : "Kans op annulering — wind te hard",
+      reason: past
+        ? `Piekwind van ${max}kn (gusts ${windGust}kn). Te gevaarlijk voor beginners — lessen waarschijnlijk niet doorgegaan.`
+        : `Piekwind van ${max}kn (gusts ${windGust}kn) tijdens lesuren. Instructeur beslist — verwacht geen waterles.`,
     };
   }
-
-  // Marginal low — could be land training
   if (avg < 12) {
     return {
-      status: "marginal",
-      emoji: "🌬️",
-      short: "Onzeker — weinig wind",
-      reason: `Gemiddeld ${avg}kn tijdens lesuren. Grensgebied: mogelijk landtraining, bodydrag zonder board, of de les gaat door met een grote vlieger. Instructeur beslist 's ochtends.`,
-      color: "#F59E0B",
+      status: "marginal", emoji: "🌬️", color: "#F59E0B",
+      short: past ? `Was: weinig wind (${avg}kn)` : "Onzeker — weinig wind",
+      reason: past
+        ? `Gemiddeld ${avg}kn tijdens lesuren. Grensgebied — mogelijk was er alleen landtraining.`
+        : `Gemiddeld ${avg}kn tijdens lesuren. Grensgebied: mogelijk landtraining of bodydrag. Instructeur beslist.`,
     };
   }
-
-  // Marginal high — manageable but guarded for beginners
   if (max > 24) {
     return {
-      status: "marginal",
-      emoji: "💨",
-      short: "Stevig — instructeur beslist",
-      reason: `Piekwind ${max}kn ${windDir} tijdens lesuren. Aan de stevige kant voor beginners. Les gaat door maar instructeur kan activiteiten aanpassen. Gusts: ${windGust}kn.`,
-      color: "#F97316",
+      status: "marginal", emoji: "💨", color: "#F97316",
+      short: past ? `Was: stevig (${max}kn)` : "Stevig — instructeur beslist",
+      reason: past
+        ? `Piekwind ${max}kn ${windDir} tijdens lesuren. Aan de stevige kant — instructeur heeft mogelijk activiteiten beperkt.`
+        : `Piekwind ${max}kn ${windDir} tijdens lesuren. Les gaat door maar activiteiten kunnen worden aangepast. Gusts: ${windGust}kn.`,
     };
   }
-
-  // Ideal
   return {
-    status: "go",
-    emoji: "🪁",
-    short: "Goede kitedag!",
-    reason: `Gemiddeld ${avg}kn ${windDir} tijdens lesuren (09–18u) — ideaal voor beginners. Grote kans op een volledige dag op het water. Veel plezier!`,
-    color: "#34D399",
+    status: "go", emoji: "🪁", color: "#34D399",
+    short: past ? `Was: goede kitedag (${avg}kn)` : "Goede kitedag!",
+    reason: past
+      ? `Gemiddeld ${avg}kn ${windDir} tijdens lesuren — ideale omstandigheden voor beginners.`
+      : `Gemiddeld ${avg}kn ${windDir} tijdens lesuren (09–18u) — ideaal voor beginners. Veel plezier!`,
   };
 }
 
@@ -131,7 +131,6 @@ function windDir(deg) {
 }
 
 function dayLabels(dateStr) {
-  // Use noon to avoid DST edge cases
   const d = new Date(dateStr + "T12:00:00");
   return {
     weekday: NL_DAYS[d.getDay()],
@@ -139,7 +138,6 @@ function dayLabels(dateStr) {
   };
 }
 
-// Average + max wind during kiting hours (09:00–18:00) from hourly data
 function parseKitingWind(hourlyTimes, hourlyWind, date) {
   const vals = [];
   for (let i = 0; i < hourlyTimes.length; i++) {
@@ -154,32 +152,21 @@ function parseKitingWind(hourlyTimes, hourlyWind, date) {
   };
 }
 
-// Find consecutive hourly rain blocks within a single date
 function parseRainWindows(hourlyTimes, hourlyPrecip, date) {
   const hours = [];
   for (let i = 0; i < hourlyTimes.length; i++) {
-    if (hourlyTimes[i].startsWith(date)) {
+    if (hourlyTimes[i].startsWith(date))
       hours.push({ h: parseInt(hourlyTimes[i].slice(11, 13)), mm: hourlyPrecip[i] ?? 0 });
-    }
   }
-
   const windows = [];
   let cur = null;
-
   for (const { h, mm } of hours) {
     if (mm >= 0.1) {
       if (!cur) cur = { startH: h, endH: h, totalMm: 0, maxMm: 0, count: 0 };
-      cur.endH   = h;
-      cur.totalMm += mm;
-      cur.maxMm   = Math.max(cur.maxMm, mm);
-      cur.count++;
-    } else if (cur) {
-      windows.push(cur);
-      cur = null;
-    }
+      cur.endH = h; cur.totalMm += mm; cur.maxMm = Math.max(cur.maxMm, mm); cur.count++;
+    } else if (cur) { windows.push(cur); cur = null; }
   }
   if (cur) windows.push(cur);
-
   return windows.map((w) => ({
     startLabel:    `${String(w.startH).padStart(2, "0")}:00`,
     endLabel:      `${String(w.endH + 1).padStart(2, "0")}:00`,
@@ -189,12 +176,17 @@ function parseRainWindows(hourlyTimes, hourlyPrecip, date) {
   }));
 }
 
-export function useWeatherForecast() {
-  const [state, setState] = useState({ status: "loading", days: [] });
+export function useWeatherForecast(trip) {
+  const [state, setState] = useState({ status: "loading", days: [], isPastTrip: false });
 
   useEffect(() => {
+    if (!trip) return;
+    setState({ status: "loading", days: [], isPastTrip: false });
+    const today = new Date().toISOString().slice(0, 10);
+    const isPastTrip = trip.endDate < today;
     let active = true;
-    fetch(ENDPOINT)
+
+    fetch(buildEndpoint(trip))
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((json) => {
         if (!active) return;
@@ -206,9 +198,9 @@ export function useWeatherForecast() {
           const kiting = parseKitingWind(h.time, h.wind_speed_10m, date);
           return {
             date,
-            isTripDay:     date >= TRIP_START && date <= TRIP_END,
-            weekday,
-            dayMonth,
+            isPastTrip,
+            isTripDay: date >= trip.startDate && date <= trip.endDate,
+            weekday, dayMonth,
             code:          d.weathercode[i],
             emoji:         weatherEmoji(d.weathercode[i]),
             label:         weatherLabel(d.weathercode[i]),
@@ -219,19 +211,19 @@ export function useWeatherForecast() {
             windDir:       windDir(d.wind_direction_10m_dominant[i]),
             windKitingAvg: kiting.avg,
             windKitingMax: kiting.max,
-            precipProb:    d.precipitation_probability_max[i] ?? 0,
+            precipProb:    d.precipitation_probability_max?.[i] ?? 0,
             precipMm:      Math.round((d.precipitation_sum[i] || 0) * 10) / 10,
             precipHours:   d.precipitation_hours[i] || 0,
             rainWindows:   parseRainWindows(h.time, h.precipitation, date),
           };
         });
 
-        setState({ status: "ready", days });
+        setState({ status: "ready", days, isPastTrip });
       })
-      .catch(() => active && setState({ status: "error", days: [] }));
+      .catch(() => active && setState({ status: "error", days: [], isPastTrip }));
 
     return () => { active = false; };
-  }, []);
+  }, [trip?.id]);
 
   return state;
 }

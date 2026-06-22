@@ -3,10 +3,13 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 import { registerServiceWorker } from './pwa.js'
+import { TripProvider } from './context/TripContext.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <TripProvider>
+      <App />
+    </TripProvider>
   </React.StrictMode>
 )
 

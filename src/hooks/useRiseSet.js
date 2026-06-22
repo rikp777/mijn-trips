@@ -1,11 +1,5 @@
 import { useState, useEffect } from "react";
 
-const LAT = 55.892;
-const LON = 8.364;
-const ENDPOINT =
-  `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
-  `&daily=sunrise,sunset&timezone=Europe%2FCopenhagen&forecast_days=16`;
-
 function parseTime(isoStr) {
   return isoStr ? isoStr.slice(11, 16) : null;
 }
@@ -19,25 +13,56 @@ function diffHM(rise, set) {
   return `${Math.floor(totalMin / 60)}u ${totalMin % 60}m`;
 }
 
-export function useRiseSet() {
+function buildEndpoint(trip) {
+  const { lat, lon } = trip;
+  const today = new Date().toISOString().slice(0, 10);
+  const isPast = trip.endDate < today;
+  const tz = "Europe%2FCopenhagen";
+
+  if (isPast) {
+    // Use archive API for past trips
+    return (
+      `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+      `&daily=sunrise,sunset&timezone=${tz}` +
+      `&start_date=${trip.startDate}&end_date=${trip.endDate}`
+    );
+  }
+  // Forecast API: covers upcoming trips and the current forecast window
+  return (
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&daily=sunrise,sunset&timezone=${tz}&forecast_days=16`
+  );
+}
+
+export function useRiseSet(trip) {
   const [state, setState] = useState({ status: "loading", today: null });
 
   useEffect(() => {
+    if (!trip) return;
+    setState({ status: "loading", today: null });
     let active = true;
-    fetch(ENDPOINT)
+
+    fetch(buildEndpoint(trip))
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((json) => {
         if (!active) return;
         const today = new Date().toISOString().slice(0, 10);
-        const idx = json.daily.time.findIndex((d) => d === today);
+        const times = json.daily.time;
+
+        // During the trip: show today. Otherwise show the trip start day.
+        const refDate =
+          today >= trip.startDate && today <= trip.endDate ? today : trip.startDate;
+
+        const idx = times.findIndex((d) => d === refDate);
         if (idx < 0) { setState({ status: "ready", today: null }); return; }
         const rise = parseTime(json.daily.sunrise[idx]);
         const set  = parseTime(json.daily.sunset[idx]);
         setState({ status: "ready", today: { rise, set, daylight: diffHM(rise, set) } });
       })
       .catch(() => active && setState({ status: "error", today: null }));
+
     return () => { active = false; };
-  }, []);
+  }, [trip?.id]);
 
   return state;
 }

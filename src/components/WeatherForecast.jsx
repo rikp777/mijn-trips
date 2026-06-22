@@ -1,24 +1,33 @@
 import { useState, useMemo } from "react";
 import { colors } from "../constants/theme";
-import { useWeatherForecast, windVerdict, sessionVerdict, TRIP_START, TRIP_END } from "../hooks/useWeatherForecast";
+import { useWeatherForecast, windVerdict, sessionVerdict } from "../hooks/useWeatherForecast";
+import { useTrip } from "../context/TripContext";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const NL_DAYS_SHORT = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 
-// All 8 camp dates as static array
-const TRIP_DATES = Array.from({ length: 8 }, (_, i) => {
-  const d = new Date("2026-07-04T12:00:00");
-  d.setDate(d.getDate() + i);
-  return d.toISOString().slice(0, 10);
-});
+function getTripDates(startDate, endDate) {
+  const dates = [];
+  const d = new Date(startDate + "T12:00:00");
+  const end = new Date(endDate + "T12:00:00");
+  while (d <= end) { dates.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+  return dates;
+}
+
+function formatDateRange(startDate, endDate) {
+  const s = new Date(startDate + "T12:00:00");
+  const e = new Date(endDate   + "T12:00:00");
+  const months = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+  if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear())
+    return `${s.getDate()}–${e.getDate()} ${months[s.getMonth()]} ${s.getFullYear()}`;
+  return `${s.getDate()} ${months[s.getMonth()]} – ${e.getDate()} ${months[e.getMonth()]} ${s.getFullYear()}`;
+}
 
 function weekdayShort(dateStr) {
   return NL_DAYS_SHORT[new Date(dateStr + "T12:00:00").getDay()];
 }
 
-function windColor(kn) {
-  return windVerdict(kn).color;
-}
+function windColor(kn) { return windVerdict(kn).color; }
 
 function precipColor(prob) {
   if (prob < 20) return colors.textMuted;
@@ -49,13 +58,13 @@ function Chip({ children, color, bold }) {
   );
 }
 
-// Compact verdict bubble used in trip-week overview row
 function TripDayBubble({ date, day }) {
-  const dayNum = parseInt(date.slice(8));
+  const d = new Date(date + "T12:00:00");
+  const dayNum = d.getDate();
+  const month  = d.getMonth() + 1;
   const wd = weekdayShort(date);
 
   if (!day) {
-    // Outside 16-day forecast window
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div style={{
@@ -65,7 +74,7 @@ function TripDayBubble({ date, day }) {
         }}>
           <span style={{ fontSize: 14 }}>❓</span>
           <span style={{ fontSize: 9, fontWeight: 700, color: colors.textMuted }}>{wd}</span>
-          <span style={{ fontSize: 9, color: colors.textMuted }}>{dayNum}/7</span>
+          <span style={{ fontSize: 9, color: colors.textMuted }}>{dayNum}/{month}</span>
         </div>
       </div>
     );
@@ -82,35 +91,37 @@ function TripDayBubble({ date, day }) {
       }}>
         <span style={{ fontSize: 15 }}>{v.emoji}</span>
         <span style={{ fontSize: 9, fontWeight: 700, color: v.color }}>{wd}</span>
-        <span style={{ fontSize: 9, color: colors.textMuted }}>{dayNum}/7</span>
+        <span style={{ fontSize: 9, color: colors.textMuted }}>{dayNum}/{month}</span>
       </div>
     </div>
   );
 }
 
-// Trip week overview: all 8 camp days in a compact row
-function TripWeekSummary({ days }) {
+function TripWeekSummary({ days, trip, isPastTrip }) {
+  const tripDates = getTripDates(trip.startDate, trip.endDate);
   const dayMap = useMemo(() => {
     const m = {};
     days.forEach((d) => { m[d.date] = d; });
     return m;
   }, [days]);
 
+  const dateLabel = formatDateRange(trip.startDate, trip.endDate);
+
   return (
     <div style={{ padding: "10px 12px 12px", borderBottom: `1px solid ${colors.surfaceBorder}` }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: colors.textMuted, marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-        🗓️ Kampweek — 4–11 juli
+        {isPastTrip ? "📜" : "🗓️"} Kampweek — {dateLabel}
       </div>
       <div style={{ display: "flex", gap: 4 }}>
-        {TRIP_DATES.map((date) => (
+        {tripDates.map((date) => (
           <TripDayBubble key={date} date={date} day={dayMap[date] ?? null} />
         ))}
       </div>
       <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
-        <LegendDot color="#34D399" label="Goede kitedag" />
+        <LegendDot color="#34D399" label={isPastTrip ? "Goede kitedag" : "Goede kitedag"} />
         <LegendDot color="#F59E0B" label="Onzeker" />
-        <LegendDot color="#EF4444" label="Kans op annulering" />
-        <LegendDot color={colors.surfaceBorder} label="Nog niet bekend" />
+        <LegendDot color="#EF4444" label={isPastTrip ? "Geannuleerd" : "Kans op annulering"} />
+        {!isPastTrip && <LegendDot color={colors.surfaceBorder} label="Nog niet bekend" />}
       </div>
     </div>
   );
@@ -153,52 +164,35 @@ function DayCard({ day, isSelected, onClick }) {
         transition: "border-color 0.15s, background 0.15s",
       }}
     >
-      {/* Weekday */}
       <span style={{
         fontSize: 10, fontWeight: 700, letterSpacing: "0.03em",
         color: isToday ? colors.sky : day.isTripDay ? "#F59E0B" : colors.textMuted,
       }}>
         {isToday ? "Vandaag" : day.weekday}
       </span>
-
-      {/* Date */}
       <span style={{ fontSize: 10, color: colors.textMuted, marginBottom: 3 }}>
         {day.dayMonth}
       </span>
-
-      {/* Weather emoji */}
       <span style={{ fontSize: 24, lineHeight: 1, marginBottom: 4 }}>{day.emoji}</span>
-
-      {/* Temp */}
       <div style={{ display: "flex", gap: 3, marginBottom: 3 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: colors.text }}>{day.tempMax}°</span>
         <span style={{ fontSize: 12, color: colors.textMuted }}>{day.tempMin}°</span>
       </div>
-
-      {/* Wind */}
       <span style={{ fontSize: 10, fontWeight: 700, color: wColor, marginBottom: 2 }}>
         🌬️ {day.windKn}kn
       </span>
-
-      {/* Precip probability */}
       <span style={{ fontSize: 10, fontWeight: 600, color: precipColor(day.precipProb), marginBottom: hasRain ? 0 : 6 }}>
         💧 {day.precipProb}%
       </span>
-
-      {/* Rain amount badge */}
       {hasRain && (
         <span style={{
           marginTop: 4, marginBottom: verdict ? 0 : 6,
-          background: "#3B82F625",
-          color: "#60A5FA",
-          borderRadius: 6, padding: "1px 5px",
-          fontSize: 9, fontWeight: 700,
+          background: "#3B82F625", color: "#60A5FA",
+          borderRadius: 6, padding: "1px 5px", fontSize: 9, fontWeight: 700,
         }}>
           {day.precipMm}mm
         </span>
       )}
-
-      {/* Session verdict strip — only for trip days */}
       {verdict && (
         <div style={{
           width: "100%", marginTop: 5,
@@ -209,7 +203,9 @@ function DayCard({ day, isSelected, onClick }) {
         }}>
           <span style={{ fontSize: 11 }}>{verdict.emoji}</span>
           <span style={{ fontSize: 8, fontWeight: 800, color: verdict.color, textAlign: "center", lineHeight: 1.2 }}>
-            {verdict.status === "go" ? "Kiten!" : verdict.status === "cancel" ? "Risico" : "Onzeker"}
+            {verdict.status === "go" ? (day.isPastTrip ? "Was goed!" : "Kiten!") :
+             verdict.status === "cancel" ? (day.isPastTrip ? "Was slecht" : "Risico") :
+             (day.isPastTrip ? "Was matig" : "Onzeker")}
           </span>
         </div>
       )}
@@ -221,12 +217,8 @@ function RainWindow({ w }) {
   const intensity = rainIntensityLabel(w.maxMm);
   return (
     <div style={{
-      background: "#1D4ED808",
-      border: "1px solid #3B82F625",
-      borderLeft: "3px solid #3B82F6",
-      borderRadius: 8,
-      padding: "8px 12px",
-      marginBottom: 6,
+      background: "#1D4ED808", border: "1px solid #3B82F625",
+      borderLeft: "3px solid #3B82F6", borderRadius: 8, padding: "8px 12px", marginBottom: 6,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: colors.text }}>
@@ -240,25 +232,19 @@ function RainWindow({ w }) {
               {intensity}
             </Chip>
           )}
-          {w.maxMm > 0 && (
-            <Chip color={colors.textMuted}>max {w.maxMm} mm/u</Chip>
-          )}
+          {w.maxMm > 0 && <Chip color={colors.textMuted}>max {w.maxMm} mm/u</Chip>}
         </div>
       </div>
     </div>
   );
 }
 
-// Session verdict card shown in detail panel for camp days
 function SessionVerdictCard({ day }) {
   const v = sessionVerdict(day);
   return (
     <div style={{
-      background: `${v.color}12`,
-      border: `1.5px solid ${v.color}44`,
-      borderRadius: 10,
-      padding: "10px 12px",
-      marginBottom: 12,
+      background: `${v.color}12`, border: `1.5px solid ${v.color}44`,
+      borderRadius: 10, padding: "10px 12px", marginBottom: 12,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
         <span style={{ fontSize: 22 }}>{v.emoji}</span>
@@ -272,9 +258,11 @@ function SessionVerdictCard({ day }) {
       <p style={{ margin: 0, fontSize: 12, color: colors.text, lineHeight: 1.55 }}>
         {v.reason}
       </p>
-      <div style={{ marginTop: 7, fontSize: 10, color: colors.textMuted, fontStyle: "italic" }}>
-        Schatting op basis van uurdata. Definitief besluit door instructeur ter plaatse.
-      </div>
+      {!day.isPastTrip && (
+        <div style={{ marginTop: 7, fontSize: 10, color: colors.textMuted, fontStyle: "italic" }}>
+          Schatting op basis van uurdata. Definitief besluit door instructeur ter plaatse.
+        </div>
+      )}
     </div>
   );
 }
@@ -289,11 +277,8 @@ function DayDetail({ day, onClose }) {
       border: `1px solid ${colors.surfaceBorder}`,
       borderTop: `3px solid ${day.isTripDay ? "#F59E0B" : colors.sky}`,
       borderRadius: "0 0 14px 14px",
-      padding: "12px 14px",
-      marginTop: -2,
-      marginBottom: 14,
+      padding: "12px 14px", marginTop: -2, marginBottom: 14,
     }}>
-      {/* Title row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
         <div>
           <span style={{ fontSize: 15, fontWeight: 800, color: colors.text }}>
@@ -301,7 +286,7 @@ function DayDetail({ day, onClose }) {
           </span>
           {day.isTripDay && (
             <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, background: "#F59E0B22", color: "#F59E0B", borderRadius: 8, padding: "2px 7px" }}>
-              Kampdag
+              {day.isPastTrip ? "Was kampdag" : "Kampdag"}
             </span>
           )}
           <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 1 }}>{day.label}</div>
@@ -315,7 +300,6 @@ function DayDetail({ day, onClose }) {
         </button>
       </div>
 
-      {/* Stats row */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${colors.surfaceBorder}` }}>
         <StatPill emoji="🌡️" label={`${day.tempMax}° / ${day.tempMin}°C`} />
         <StatPill emoji={verdict.emoji} label={`${day.windKn} kn ${day.windDir}`} color={verdict.color} />
@@ -323,10 +307,8 @@ function DayDetail({ day, onClose }) {
         <StatPill emoji="💧" label={`${day.precipProb}% kans`} color={precipColor(day.precipProb)} />
       </div>
 
-      {/* Session verdict card — only for camp days */}
       {day.isTripDay && <SessionVerdictCard day={day} />}
 
-      {/* Kite wind pill — for non-camp days */}
       {!day.isTripDay && (
         <div style={{
           display: "inline-flex", alignItems: "center", gap: 6,
@@ -337,20 +319,17 @@ function DayDetail({ day, onClose }) {
         </div>
       )}
 
-      {/* Rain section */}
       {hasRain ? (
         <>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#60A5FA", marginBottom: 8 }}>
             🌧️ Regenperiodes — {day.precipMm} mm totaal over {day.precipHours}u
           </div>
-          {day.rainWindows.map((w, i) => (
-            <RainWindow key={i} w={w} />
-          ))}
+          {day.rainWindows.map((w, i) => <RainWindow key={i} w={w} />)}
         </>
       ) : (
         <div style={{ fontSize: 13, color: colors.textMuted, display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 16 }}>✅</span>
-          Geen neerslag verwacht
+          {day.isPastTrip ? "Geen neerslag gevallen" : "Geen neerslag verwacht"}
         </div>
       )}
     </div>
@@ -369,18 +348,20 @@ function StatPill({ emoji, label, color }) {
 // ── Main component ───────────────────────────────────────────────
 
 export default function WeatherForecast() {
-  const { status, days } = useWeatherForecast();
+  const { activeTrip } = useTrip();
+  const { status, days, isPastTrip } = useWeatherForecast(activeTrip);
   const [selectedDate, setSelectedDate] = useState(null);
 
   const selectedDay = days.find((d) => d.date === selectedDate) ?? null;
-
-  const toggle = (date) =>
-    setSelectedDate((prev) => (prev === date ? null : date));
+  const toggle = (date) => setSelectedDate((prev) => (prev === date ? null : date));
+  const tripDaysInForecast = days.filter((d) => d.isTripDay);
 
   if (status === "loading") {
     return (
       <div style={{ background: colors.surface, border: `1px solid ${colors.surfaceBorder}`, borderRadius: 14, padding: "14px 16px", marginBottom: 14 }}>
-        <span style={{ color: colors.textMuted, fontSize: 13 }}>☁️ Weersvoorspelling laden…</span>
+        <span style={{ color: colors.textMuted, fontSize: 13 }}>
+          {isPastTrip ? "📜 Historisch weer laden…" : "☁️ Weersvoorspelling laden…"}
+        </span>
       </div>
     );
   }
@@ -395,7 +376,7 @@ export default function WeatherForecast() {
     );
   }
 
-  const tripDaysInForecast = days.filter((d) => d.isTripDay);
+  const locationLabel = activeTrip.subtitle.split(",")[0];
 
   return (
     <>
@@ -417,16 +398,18 @@ export default function WeatherForecast() {
           borderBottom: `1px solid ${colors.surfaceBorder}`,
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
-          <span style={{ color: colors.text, fontWeight: 700, fontSize: 14 }}>☁️ Weersvoorspelling</span>
-          <span style={{ color: colors.textMuted, fontSize: 11 }}>Ringkøbing · {days.length} dagen</span>
+          <span style={{ color: colors.text, fontWeight: 700, fontSize: 14 }}>
+            {isPastTrip ? "📜 Historisch weer" : "☁️ Weersvoorspelling"}
+          </span>
+          <span style={{ color: colors.textMuted, fontSize: 11 }}>
+            {locationLabel} · {days.length} {isPastTrip ? "kampdag" : "dag"}{days.length !== 1 ? "en" : ""}
+          </span>
         </div>
 
-        {/* Trip week overview — shown whenever any trip days are in forecast */}
         {tripDaysInForecast.length > 0 && (
-          <TripWeekSummary days={days} />
+          <TripWeekSummary days={days} trip={activeTrip} isPastTrip={isPastTrip} />
         )}
 
-        {/* Horizontal day strip */}
         <div className="wx-strip" style={{ display: "flex", gap: 6, overflowX: "auto", padding: "10px 10px 8px" }}>
           {days.map((day) => (
             <DayCard
@@ -438,16 +421,14 @@ export default function WeatherForecast() {
           ))}
         </div>
 
-        {/* Legend */}
         <div style={{ padding: "4px 14px 10px", display: "flex", gap: 16, flexWrap: "wrap" }}>
           {tripDaysInForecast.length > 0 && (
-            <LegendDot color="#F59E0B" label="Kampdagen (4–11 jul)" />
+            <LegendDot color="#F59E0B" label={`Kampdagen (${formatDateRange(activeTrip.startDate, activeTrip.endDate)})`} />
           )}
           <LegendDot color={colors.sky} label="Tik dag voor details" />
         </div>
       </div>
 
-      {/* Detail panel — seamlessly connected */}
       {selectedDay && (
         <DayDetail day={selectedDay} onClose={() => setSelectedDate(null)} />
       )}
