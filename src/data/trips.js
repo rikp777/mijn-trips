@@ -5,6 +5,11 @@
 // windLat/windLon: the best nearby kite-spot for the live wind widget
 //   (often slightly offset from the camp — e.g. the open beach rather than the fjord).
 
+// activities: list of activity types for this trip.
+//   "kite"  — shows wind widget, kite session verdicts
+//   "hike"  — shows elevation/trail card (future)
+//   Both:   ["kite", "hike"]
+
 export const trips = [
   {
     id: "ripstar-dk-2026",
@@ -12,6 +17,7 @@ export const trips = [
     subtitle: "Ringkøbing Fjord, Denemarken",
     emoji: "🪁",
     flag: "🇩🇰",
+    activities: ["kite"],
     // Camp / weather location
     lat: 55.892,
     lon: 8.364,
@@ -29,6 +35,7 @@ export const trips = [
     subtitle: "Tarifa, Spanje",
     emoji: "🪁",
     flag: "🇪🇸",
+    activities: ["kite"],
     lat: 36.014,
     lon: -5.603,
     startDate: "2025-06-07",

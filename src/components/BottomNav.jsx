@@ -1,10 +1,11 @@
 import { colors } from "../constants/theme";
 
 export const TABS = [
-  { id: "home", label: "Home",       emoji: "🏠" },
-  { id: "pack", label: "Paklijst",   emoji: "🎒" },
-  { id: "day",  label: "Dagindeling", emoji: "📅" },
-  { id: "map",  label: "Kaart",      emoji: "🗺️" },
+  { id: "home",    label: "Home",    emoji: "🏠" },
+  { id: "journal", label: "Reislog", emoji: "📸" },
+  { id: "pack",    label: "Pakken",  emoji: "🎒" },
+  { id: "day",     label: "Dag",     emoji: "📅" },
+  { id: "map",     label: "Kaart",   emoji: "🗺️" },
 ];
 
 /** Fixed bottom tab bar — the primary mobile navigation. */

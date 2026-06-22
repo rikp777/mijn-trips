@@ -65,16 +65,19 @@ function TripCountdownCard() {
   const { activeTrip } = useTrip();
   const status = useTripPhase(activeTrip.startDate, activeTrip.endDate);
   const dateStr = formatDateRange(activeTrip.startDate, activeTrip.endDate);
+  const isKite = activeTrip.activities?.includes("kite") ?? true;
 
   let headline, sub;
   if (status.phase === "before") {
     headline = status.daysUntil === 1 ? "Morgen vertrek je! 🚗" : `Nog ${status.daysUntil} dagen tot vertrek`;
     sub = `${dateStr} · ${activeTrip.subtitle}`;
   } else if (status.phase === "during") {
-    headline = `Dag ${status.dayOfTrip} van het kamp! ${activeTrip.emoji}`;
-    sub = `Je kitet nu bij ${activeTrip.subtitle} — geniet ervan!`;
+    headline = `Dag ${status.dayOfTrip} van de trip! ${activeTrip.emoji}`;
+    sub = isKite
+      ? `Je kitet nu bij ${activeTrip.subtitle} — geniet ervan!`
+      : `Je bent nu bij ${activeTrip.subtitle} — geniet ervan!`;
   } else {
-    headline = `Kamp afgerond ${activeTrip.emoji}`;
+    headline = `Trip afgerond ${activeTrip.emoji}`;
     sub = `${dateStr} · ${activeTrip.subtitle}`;
   }
 
@@ -352,6 +355,7 @@ function DanishPhrasesCard() {
 export default function TripDetailView({ onBack, onNavigate }) {
   const { activeTrip } = useTrip();
   const isDKTrip = activeTrip.id === "ripstar-dk-2026";
+  const isKite   = activeTrip.activities?.includes("kite") ?? true;
 
   return (
     <>
@@ -362,7 +366,7 @@ export default function TripDetailView({ onBack, onNavigate }) {
         onBack={onBack}
         backLabel="← Alle trips"
       >
-        <WindWidget />
+        {isKite && <WindWidget />}
       </PageHero>
 
       <div className="page-content">

@@ -12,6 +12,7 @@ import DaySchedule from "./components/DaySchedule";
 import HomeView from "./views/HomeView";
 import TripDetailView from "./views/TripDetailView";
 import PackingView from "./views/PackingView";
+import JournalView from "./views/JournalView";
 
 // The map pulls in Leaflet — load it only when the Kaart tab is opened.
 const MapView = lazy(() => import("./components/MapView"));
@@ -35,6 +36,8 @@ export default function App() {
       }
       return <HomeView onOpenTrip={() => setTripDetail(true)} />;
     }
+
+    if (tab === "journal") return <JournalView />;
 
     if (tab === "pack") return <PackingView showToast={showToast} />;
 
