@@ -91,6 +91,65 @@ function slotWeatherInfo(date, startTime, endTime, hourlyData) {
   };
 }
 
+// ── Tooltip row builders ──────────────────────────────────────────
+
+const tempColor = (t) =>
+  t >= 30 ? "#EF4444" : t >= 22 ? "#F97316" : t >= 16 ? "#FCD34D" : t >= 8 ? "#6EE7B7" : "#93C5FD";
+const windColor = (w) =>
+  w >= 25 ? "#F97316" : w >= 15 ? "#34D399" : w >= 8 ? "#6EE7B7" : colors.textMuted;
+const rainColor = (p) =>
+  p >= 2 ? "#3B82F6" : p >= 0.5 ? "#60A5FA" : "#93C5FD";
+
+function slotTooltipRows(wx2, variant) {
+  const rows = [];
+  for (let i = 0; i < wx2.bars.length; i += 2) {
+    const h = wx2.startH + i / 2;
+    const label = `${String(h).padStart(2, "0")}:00`;
+    const rain = wx2.bars[i];
+    const wind = wx2.windBars[i];
+    const temp = wx2.tempBars[i];
+    if (variant === "temp") {
+      rows.push({
+        label, primary: temp != null ? `${temp}°` : "–", color: temp != null ? tempColor(temp) : colors.textMuted,
+        extra: [...(rain >= 0.1 ? [{ emoji: "💧", text: `${rain}mm` }] : []), ...(wind > 0 ? [{ emoji: "💨", text: `${wind}kn` }] : [])],
+      });
+    } else if (variant === "rain") {
+      rows.push({
+        label, primary: rain >= 0.1 ? `${rain}mm` : "droog", color: rain >= 0.1 ? rainColor(rain) : colors.textMuted,
+        extra: [...(temp != null ? [{ emoji: "🌡", text: `${temp}°` }] : []), ...(wind > 0 ? [{ emoji: "💨", text: `${wind}kn` }] : [])],
+      });
+    } else {
+      rows.push({
+        label, primary: wind > 0 ? `${wind}kn` : "kalm", color: wind > 0 ? windColor(wind) : colors.textMuted,
+        extra: [...(temp != null ? [{ emoji: "🌡", text: `${temp}°` }] : []), ...(rain >= 0.1 ? [{ emoji: "💧", text: `${rain}mm` }] : [])],
+      });
+    }
+  }
+  return rows;
+}
+
+function dayTooltipRows(hours, variant) {
+  return hours.map(({ h, precip, wind, temp }) => {
+    const label = `${String(h).padStart(2, "0")}:00`;
+    if (variant === "temp") {
+      return {
+        label, primary: temp != null ? `${temp}°` : "–", color: temp != null ? tempColor(temp) : colors.textMuted,
+        extra: [...(precip >= 0.1 ? [{ emoji: "💧", text: `${precip}mm` }] : []), ...(wind > 0 ? [{ emoji: "💨", text: `${wind}kn` }] : [])],
+      };
+    } else if (variant === "rain") {
+      return {
+        label, primary: precip >= 0.1 ? `${precip}mm` : "droog", color: precip >= 0.1 ? rainColor(precip) : colors.textMuted,
+        extra: [...(temp != null ? [{ emoji: "🌡", text: `${temp}°` }] : []), ...(wind > 0 ? [{ emoji: "💨", text: `${wind}kn` }] : [])],
+      };
+    } else {
+      return {
+        label, primary: wind > 0 ? `${wind}kn` : "kalm", color: wind > 0 ? windColor(wind) : colors.textMuted,
+        extra: [...(temp != null ? [{ emoji: "🌡", text: `${temp}°` }] : []), ...(precip >= 0.1 ? [{ emoji: "💧", text: `${precip}mm` }] : [])],
+      };
+    }
+  });
+}
+
 // ── Day weather strip ─────────────────────────────────────────────
 
 const NL_MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
@@ -136,13 +195,22 @@ function DaySparklines({ date, hourlyData }) {
   return (
     <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${colors.surfaceBorder}` }}>
       {anyTemp && barRow("🌡", (
-        <SparkBars height={6} bars={buildTempBars(hours.map((h) => h.temp), { min: minTemp, max: maxTemp })} />
+        <SparkBars height={6}
+          bars={buildTempBars(hours.map((h) => h.temp), { min: minTemp, max: maxTemp })}
+          tooltip={{ title: "🌡 Temperatuur", rows: dayTooltipRows(hours, "temp") }}
+        />
       ))}
       {anyRain && barRow("💧", (
-        <SparkBars height={6} bars={buildRainBars(hours.map((h) => h.precip), maxRain, { dayView: true })} />
+        <SparkBars height={6}
+          bars={buildRainBars(hours.map((h) => h.precip), maxRain, { dayView: true })}
+          tooltip={{ title: "💧 Regen", rows: dayTooltipRows(hours, "rain") }}
+        />
       ))}
       {anyWind && barRow("💨", (
-        <SparkBars height={6} bars={buildWindBars(hours.map((h) => h.wind), maxWind)} />
+        <SparkBars height={6}
+          bars={buildWindBars(hours.map((h) => h.wind), maxWind)}
+          tooltip={{ title: "💨 Wind", rows: dayTooltipRows(hours, "wind") }}
+        />
       ))}
       {hourLabels}
     </div>
@@ -482,7 +550,10 @@ export default function DaySchedule({ onFocusMap, onFocusPack }) {
                       {wx2.hasTemp && (
                         <div style={{ display: "flex", alignItems: "flex-end", gap: 2 }}>
                           <span style={{ fontSize: 8, opacity: 0.65 }}>🌡</span>
-                          <SparkBars bars={buildTempBars(wx2.tempBars)} />
+                          <SparkBars
+                            bars={buildTempBars(wx2.tempBars)}
+                            tooltip={{ title: "🌡 Temperatuur", rows: slotTooltipRows(wx2, "temp") }}
+                          />
                         </div>
                       )}
                       {wx2.hasRain && (
@@ -490,7 +561,10 @@ export default function DaySchedule({ onFocusMap, onFocusPack }) {
                           <span style={{ fontSize: 10, color: "#60A5FA", fontWeight: 700, lineHeight: 1 }}>
                             💧 {wx2.totalMm}mm
                           </span>
-                          <SparkBars bars={buildRainBars(wx2.bars, wx2.maxP)} />
+                          <SparkBars
+                            bars={buildRainBars(wx2.bars, wx2.maxP)}
+                            tooltip={{ title: "💧 Regen", rows: slotTooltipRows(wx2, "rain") }}
+                          />
                         </div>
                       )}
                       {wx2.hasWind && (
@@ -501,7 +575,10 @@ export default function DaySchedule({ onFocusMap, onFocusPack }) {
                           }}>
                             💨 {h.wind}kn
                           </span>
-                          <SparkBars bars={buildWindBars(wx2.windBars, wx2.maxWind)} />
+                          <SparkBars
+                            bars={buildWindBars(wx2.windBars, wx2.maxWind)}
+                            tooltip={{ title: "💨 Wind", rows: slotTooltipRows(wx2, "wind") }}
+                          />
                         </div>
                       )}
                     </div>
