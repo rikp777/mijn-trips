@@ -580,8 +580,13 @@ export default function DaySchedule({ onFocusMap, onFocusPack }) {
                         </div>
                       )}
                       {wx2.hasWind && (
-                        <div style={{ display: "flex", alignItems: "flex-end", gap: 2 }}>
-                          <span style={{ fontSize: 8, opacity: 0.65 }}>💨</span>
+                        <div style={{ display: "flex", alignItems: "flex-end", gap: 4 }}>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, lineHeight: 1,
+                            color: h.wind >= 25 ? "#F97316" : h.wind >= 15 ? "#34D399" : h.wind >= 8 ? "#6EE7B7" : colors.textMuted,
+                          }}>
+                            💨 {h.wind}kn
+                          </span>
                           <TinyWindBars bars={wx2.windBars} maxP={wx2.maxWind} />
                         </div>
                       )}
