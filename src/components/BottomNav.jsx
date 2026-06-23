@@ -44,13 +44,16 @@ export default function BottomNav({ active, onChange }) {
               background: "none",
               border: "none",
               cursor: "pointer",
-              padding: "10px 4px",
+              padding: "12px 4px 10px",
+              minHeight: 56,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: 3,
+              justifyContent: "center",
+              gap: 4,
               color: isActive ? colors.accentLight : colors.textMuted,
               fontWeight: isActive ? 700 : 500,
+              WebkitTapHighlightColor: "transparent",
             }}
           >
             <span style={{ fontSize: 20, filter: isActive ? "none" : "grayscale(0.4)" }}>{tab.emoji}</span>

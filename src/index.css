@@ -1,6 +1,32 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 
+/* ── Mobile base resets ────────────────────────────────────────── */
+
+/* Remove native tap flash on all platforms */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Tell the browser not to wait for a double-tap before firing click */
+button, a, [role="button"] { touch-action: manipulation; }
+
+/* Universal press feedback — subtle scale + dim on active */
+button:active, [role="button"]:active {
+  opacity: 0.72;
+  transform: scale(0.96);
+  transition: opacity 0.07s, transform 0.07s;
+}
+
+/* Prevent iOS from zooming into focused inputs (triggered when font-size < 16px) */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
+/* Smooth scroll on iOS */
+html { -webkit-overflow-scrolling: touch; }
+
+/* Prevent text selection flicker on tap-and-hold of UI chrome */
+nav, button { user-select: none; -webkit-user-select: none; }
+
 /* Responsive inner container — constrains page-hero / header content width */
 .page-inner {
   width: 100%;

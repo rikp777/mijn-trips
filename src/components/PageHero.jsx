@@ -22,8 +22,9 @@ export default function PageHero({ eyebrow, title, subtitle, children, onBack, b
               border: "1px solid rgba(255,255,255,0.25)",
               borderRadius: 20,
               color: "#fff",
-              fontSize: 12, fontWeight: 700,
-              padding: "5px 12px",
+              fontSize: 13, fontWeight: 700,
+              padding: "10px 16px",
+              minHeight: 44,
               cursor: "pointer",
               marginBottom: 12,
             }}

@@ -195,11 +195,12 @@ function PreTripTodoCard() {
 function TodoRow({ item, isChecked, onToggle }) {
   return (
     <div onClick={() => onToggle(item.id)} style={{
-      display: "flex", alignItems: "flex-start", gap: 10,
-      padding: "7px 0", borderBottom: `1px solid ${colors.surfaceBorder}`, cursor: "pointer",
+      display: "flex", alignItems: "center", gap: 12,
+      padding: "10px 0", minHeight: 44,
+      borderBottom: `1px solid ${colors.surfaceBorder}`, cursor: "pointer",
     }}>
       <div style={{
-        width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 1,
+        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
         border: isChecked ? "none" : `1.5px solid ${colors.border}`,
         background: isChecked ? "#34D399" : "transparent",
         display: "flex", alignItems: "center", justifyContent: "center",

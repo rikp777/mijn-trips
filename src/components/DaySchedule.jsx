@@ -428,10 +428,11 @@ export default function DaySchedule({ onFocusMap, onFocusPack }) {
               key={d.id}
               onClick={() => setSelectedIdx(i)}
               style={{
-                flexShrink: 0, padding: "8px 12px", borderRadius: 12,
+                flexShrink: 0, padding: "10px 12px", borderRadius: 12,
                 border: `1px solid ${selected ? colors.sky : colors.surfaceBorder}`,
                 background: selected ? `${colors.sky}22` : colors.surface,
-                cursor: "pointer", textAlign: "center", minWidth: 68, position: "relative",
+                cursor: "pointer", textAlign: "center", minWidth: 68, minHeight: 52,
+                position: "relative",
               }}
             >
               {isToday && (
@@ -589,10 +590,10 @@ export default function DaySchedule({ onFocusMap, onFocusPack }) {
                   <button
                     onClick={() => onFocusMap(slot.locationId)}
                     style={{
-                      marginTop: 8, background: "none", border: "none",
+                      marginTop: 4, background: "none", border: "none",
                       color: locColor, fontSize: 12, fontWeight: 700,
-                      cursor: "pointer", padding: 0,
-                      display: "flex", alignItems: "center", gap: 4,
+                      cursor: "pointer", padding: "8px 0",
+                      minHeight: 44, display: "flex", alignItems: "center", gap: 4,
                     }}
                   >
                     📍 {linkedLoc.emoji} {linkedLoc.name}
@@ -620,8 +621,8 @@ export default function DaySchedule({ onFocusMap, onFocusPack }) {
                     {onFocusPack && (
                       <button onClick={onFocusPack} style={{
                         background: "none", border: "none",
-                        color: colors.sky, fontSize: 10.5, fontWeight: 700,
-                        cursor: "pointer", padding: "2px 4px",
+                        color: colors.sky, fontSize: 11, fontWeight: 700,
+                        cursor: "pointer", padding: "6px 8px", minHeight: 36,
                       }}>
                         🎒 paklijst →
                       </button>
