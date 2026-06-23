@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback, useReducer } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { colors } from "../constants/theme";
 import { useTrip } from "../context/TripContext";
-import { locations as dkLocations, locationCategories as dkCategories, FJORD_CENTER, ROUTE_STOPS as DK_ROUTE_STOPS, DK_BIKE_ROUTE_STOPS } from "../data/locations";
+import { locations as dkLocations, locationCategories as dkCategories, FJORD_CENTER, ROUTE_STOPS as DK_ROUTE_STOPS, DK_BIKE_ROUTE_STOPS, DRIVE_STOPS, RETURN_DRIVE_STOPS } from "../data/locations";
 import { locations as roadtripLocations, roadtripCategories, ROADTRIP_CENTER, ROUTE_STOPS } from "../data/locations-roadtrip-2026";
 import { locations as jnLocations, jnCategories, JN_CENTER, JN_ROUTE_STOPS, JN_ROUTE_MODE } from "../data/locations-jn-kamp-2026";
 import { BORDER_LINES } from "../data/border-lines-generated";
@@ -51,7 +51,187 @@ function getMapData(trip) {
       { ways: BORDER_LINES["NL-DE"], label: "🇳🇱 NL &nbsp;·&nbsp; DE 🇩🇪", lpos: [51.56, 5.76] },
       { ways: BORDER_LINES["DE-DK"], label: "🇩🇪 DE &nbsp;·&nbsp; DK 🇩🇰", lpos: [54.96, 8.75] },
     ],
+    driveStops: DRIVE_STOPS,
+    driveDate: "2026-07-04",
+    returnStops: RETURN_DRIVE_STOPS,
+    returnDate: "2026-07-11",
   };
+}
+
+function parseDriveMin(t) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function computeLivePos(stops, driveDate) {
+  if (!stops?.length || !driveDate) return null;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (today !== driveDate) return null;
+
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  for (let i = 0; i < stops.length - 1; i++) {
+    const startMin = parseDriveMin(stops[i].time);
+    const segEnd   = parseDriveMin(stops[i + 1].time);
+    if (nowMin >= startMin && nowMin < segEnd) {
+      const stopEnd = stops[i].endTime ? parseDriveMin(stops[i].endTime) : startMin;
+      if (nowMin < stopEnd) return { lat: stops[i].lat, lon: stops[i].lon };
+      const frac = (nowMin - stopEnd) / Math.max(1, segEnd - stopEnd);
+      return {
+        lat: stops[i].lat + (stops[i + 1].lat - stops[i].lat) * frac,
+        lon: stops[i].lon + (stops[i + 1].lon - stops[i].lon) * frac,
+      };
+    }
+  }
+  const last = stops[stops.length - 1];
+  if (nowMin >= parseDriveMin(last.time)) return { lat: last.lat, lon: last.lon };
+  return null;
+}
+
+function DriveRoutePanel({ driveStops, driveDate, label, dateLabel, locations, onStopClick }) {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const isLiveDay = todayStr === driveDate;
+  const nowMin = isLiveDay ? now.getHours() * 60 + now.getMinutes() : null;
+
+  const [open, setOpen] = useState(isLiveDay);
+
+  const gmapsUrl = "https://www.google.com/maps/dir/" +
+    driveStops.map((s) => `${s.lat},${s.lon}`).join("/");
+
+  const passedIdx = nowMin == null ? -1
+    : driveStops.reduce((last, s, i) => parseDriveMin(s.time) <= nowMin ? i : last, -1);
+  const arrived = passedIdx === driveStops.length - 1;
+
+  // Which segment is currently active (driving between passedIdx → passedIdx+1)
+  const inTransit = !arrived && passedIdx >= 0 && nowMin != null && (() => {
+    const stopEnd = driveStops[passedIdx].endTime ? parseDriveMin(driveStops[passedIdx].endTime) : parseDriveMin(driveStops[passedIdx].time);
+    return nowMin > stopEnd;
+  })();
+
+  return (
+    <div style={{ background: colors.surface, border: `1px solid ${colors.surfaceBorder}`, borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+      {/* Header */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", color: colors.text, textAlign: "left" }}
+      >
+        <span style={{ fontSize: 16 }}>🚗</span>
+        <span style={{ flex: 1 }}>
+          <span style={{ fontWeight: 700, fontSize: 13 }}>{label}</span>
+          <span style={{ color: colors.textMuted, fontSize: 12 }}> · {dateLabel} · {driveStops.length} stops</span>
+        </span>
+        {isLiveDay && !arrived && (
+          <span style={{ fontSize: 9, color: colors.sky, fontWeight: 700, background: `${colors.sky}20`, padding: "2px 7px", borderRadius: 10, letterSpacing: "0.05em" }}>LIVE</span>
+        )}
+        {arrived && <span style={{ fontSize: 10, color: "#10B981", fontWeight: 700 }}>✓ Aangekomen</span>}
+        <span style={{ color: colors.textMuted, fontSize: 11, marginLeft: 2 }}>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div style={{ padding: "2px 14px 12px" }}>
+          <a
+            href={gmapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              background: "#1A73E8", color: "#fff",
+              borderRadius: 10, padding: "10px 14px", marginBottom: 12,
+              fontSize: 13, fontWeight: 700, textDecoration: "none",
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            Open in Google Maps · {driveStops.length} stops
+          </a>
+          {driveStops.map((stop, i) => {
+            const isPassed  = passedIdx >= i;
+            const isCurrent = passedIdx === i && !arrived && !inTransit;
+            const isNextUp  = inTransit && i === passedIdx + 1;
+            const isLast    = i === driveStops.length - 1;
+            const loc       = locations.find((l) => l.id === stop.id);
+
+            return (
+              <div key={stop.id} style={{ display: "flex", gap: 10 }}>
+                {/* Connector column */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 28, flexShrink: 0 }}>
+                  {i > 0 && (
+                    <div style={{ width: 2, height: 14, marginBottom: 2, background: isPassed ? colors.sky : `${colors.surfaceBorder}60`, borderRadius: 1 }} />
+                  )}
+                  {/* In-transit arrow between stops */}
+                  {inTransit && i === passedIdx + 1 && (
+                    <div style={{ fontSize: 10, color: colors.sky, marginBottom: 2, marginTop: -2 }}>▼</div>
+                  )}
+                  <div style={{
+                    width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                    background: isCurrent ? `${colors.sky}30` : isPassed ? `${colors.sky}18` : `${colors.surfaceBorder}30`,
+                    border: `2px solid ${isCurrent || isNextUp ? colors.sky : isPassed ? `${colors.sky}50` : colors.surfaceBorder}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: isPassed && !isCurrent ? 12 : 14, lineHeight: 1,
+                    boxShadow: isCurrent || isNextUp ? `0 0 0 4px ${colors.sky}20` : "none",
+                    transition: "all 0.2s",
+                  }}>
+                    {isPassed && !isCurrent ? "✓" : stop.emoji}
+                  </div>
+                  {!isLast && (
+                    <div style={{ width: 2, flex: 1, minHeight: 14, marginTop: 2, background: isPassed ? colors.sky : `${colors.surfaceBorder}60`, borderRadius: 1 }} />
+                  )}
+                </div>
+
+                {/* Content column */}
+                <div
+                  onClick={() => loc && onStopClick(loc)}
+                  style={{ flex: 1, paddingBottom: isLast ? 4 : 14, paddingTop: 2, cursor: loc ? "pointer" : "default" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 1 }}>
+                    <span style={{ fontWeight: 700, fontSize: 11, color: colors.sky, fontVariantNumeric: "tabular-nums" }}>
+                      {stop.time}
+                    </span>
+                    {stop.endTime && (
+                      <span style={{ fontSize: 10, color: colors.textMuted }}>– {stop.endTime}</span>
+                    )}
+                    {isCurrent && <span style={{ fontSize: 9, color: colors.sky, fontWeight: 700, background: `${colors.sky}20`, padding: "1px 5px", borderRadius: 6 }}>← nu hier</span>}
+                    {isNextUp  && <span style={{ fontSize: 9, color: "#F59E0B", fontWeight: 700, background: "#F59E0B20", padding: "1px 5px", borderRadius: 6 }}>onderweg →</span>}
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: isPassed && !isCurrent ? colors.textMuted : colors.text, marginBottom: 1 }}>
+                    {stop.label}
+                  </div>
+                  <div style={{ fontSize: 11, color: colors.textMuted }}>{stop.detail}</div>
+                  {stop.note && (
+                    <div style={{ fontSize: 11, marginTop: 2, color: stop.note.includes("⚠️") ? "#F59E0B" : colors.textMuted }}>
+                      {stop.note}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8, marginTop: 3, alignItems: "center" }}>
+                    {loc && (
+                      <div style={{ fontSize: 10, color: colors.sky, opacity: 0.65 }}>📍 Toon op kaart</div>
+                    )}
+                    <a
+                      href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${stop.lat},${stop.lon}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        fontSize: 10, fontWeight: 700, color: "#fff",
+                        background: "rgba(255,255,255,0.12)", borderRadius: 5,
+                        padding: "2px 6px", textDecoration: "none", letterSpacing: 0.2,
+                      }}
+                    >
+                      📷 Street View
+                    </a>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const TILES = {
@@ -117,7 +297,7 @@ function subChip(loc) {
 
 export default function MapView({ focus }) {
   const { activeTrip } = useTrip();
-  const { locations, locationCategories, mapCenter, routeStops, routeMode, routeKey, routeMeta, bikeRouteStops, bikeMeta, borderCrossings } = getMapData(activeTrip);
+  const { locations, locationCategories, mapCenter, routeStops, routeMode, routeKey, routeMeta, bikeRouteStops, bikeMeta, borderCrossings, driveStops, driveDate, returnStops, returnDate } = getMapData(activeTrip);
   const CATEGORY_ORDER = activeTrip?.id === "jn-kamp-2026" ? CATEGORY_ORDER_JN
     : activeTrip?.id === "europe-roadtrip-2026" ? CATEGORY_ORDER_ROADTRIP
     : CATEGORY_ORDER_DK;
@@ -129,6 +309,7 @@ export default function MapView({ focus }) {
   const routeRef        = useRef(null);
   const bikeRouteRef    = useRef(null);
   const tileRef         = useRef(null);
+  const liveMarkerRef   = useRef(null);
   const readyRef        = useRef(false);
   const focusRef        = useRef(focus);
 
@@ -180,7 +361,7 @@ export default function MapView({ focus }) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = L.map(containerRef.current, { scrollWheelZoom: false, zoomControl: false, preferCanvas: true })
+    const map = L.map(containerRef.current, { scrollWheelZoom: false, zoomControl: false })
       .setView([mapCenter.lat, mapCenter.lon], mapCenter.zoom);
     mapRef.current = map;
     L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -243,25 +424,49 @@ export default function MapView({ focus }) {
 
     map.fitBounds(locations.map((l) => [l.lat, l.lon]), { padding: [32, 32] });
 
-    setTimeout(() => {
+    const initTimer = setTimeout(() => {
+      if (!mapRef.current) return;
       readyRef.current = true;
       const tid = focusRef.current;
       if (tid) {
         const loc = locations.find((l) => l.id === tid);
         if (loc) { map.setView([loc.lat, loc.lon], 14); markersRef.current[tid]?.openPopup(); }
       } else {
-        // Open first stop/camp marker by default
         const defaultId = locations.find((l) => l.category === "stop" || l.id === "camp")?.id;
         if (defaultId) markersRef.current[defaultId]?.openPopup();
       }
     }, 650);
 
+    // Live "you are here" marker — only on the driving day
+    let liveInterval = null;
+    if (driveStops && driveDate) {
+      const updateLive = () => {
+        const pos = computeLivePos(driveStops, driveDate);
+        if (!pos) return;
+        if (liveMarkerRef.current) {
+          liveMarkerRef.current.setLatLng([pos.lat, pos.lon]);
+        } else {
+          const icon = L.divIcon({
+            className: "",
+            html: `<div style="width:16px;height:16px;border-radius:50%;background:#0EA5E9;border:3px solid #fff;box-shadow:0 0 0 0 rgba(14,165,233,0.6);animation:livePulse 1.8s ease-out infinite"></div>`,
+            iconSize: [16, 16], iconAnchor: [8, 8],
+          });
+          liveMarkerRef.current = L.marker([pos.lat, pos.lon], { icon, zIndexOffset: 2000 }).addTo(map);
+        }
+      };
+      updateLive();
+      liveInterval = setInterval(updateLive, 30000);
+    }
+
     return () => {
+      clearTimeout(initTimer);
+      clearInterval(liveInterval);
       map.remove();
       mapRef.current = null;
       markersRef.current = {};
       routeRef.current = null;
       bikeRouteRef.current = null;
+      liveMarkerRef.current = null;
       tileRef.current = null;
       readyRef.current = false;
     };
@@ -274,7 +479,8 @@ export default function MapView({ focus }) {
     const marker = markersRef.current[focus];
     if (!loc || !marker) return;
     mapRef.current.flyTo([loc.lat, loc.lon], 14, { duration: 0.7 });
-    setTimeout(() => marker.openPopup(), 750);
+    const t = setTimeout(() => { if (mapRef.current) marker.openPopup(); }, 750);
+    return () => clearTimeout(t);
   }, [focus]);
 
   // ── Scroll list to highlighted item when map marker is clicked ──────
@@ -340,6 +546,11 @@ export default function MapView({ focus }) {
         .leaflet-popup-content-wrapper { border-radius: 14px !important; box-shadow: 0 6px 24px rgba(0,0,0,.2) !important; }
         .leaflet-popup-content { margin: 14px 16px !important; }
         .leaflet-popup-tip-container { display: none; }
+        @keyframes livePulse {
+          0%   { box-shadow: 0 0 0 0   rgba(14,165,233,0.7); }
+          70%  { box-shadow: 0 0 0 10px rgba(14,165,233,0);  }
+          100% { box-shadow: 0 0 0 0   rgba(14,165,233,0);   }
+        }
       `}</style>
 
       {/* ── Search ────────────────────────────────────────────── */}
@@ -418,6 +629,24 @@ export default function MapView({ focus }) {
           );
         })}
       </div>
+
+      {/* ── Drive day panels ─────────────────────────────────── */}
+      {driveStops && (
+        <DriveRoutePanel
+          driveStops={driveStops} driveDate={driveDate}
+          label="Rijdag route" dateLabel="Za 4 juli"
+          locations={locations}
+          onStopClick={(loc) => { flyTo(loc); setSelectedId(loc.id); }}
+        />
+      )}
+      {returnStops && (
+        <DriveRoutePanel
+          driveStops={returnStops} driveDate={returnDate}
+          label="Terugrit route" dateLabel="Za 11 juli"
+          locations={locations}
+          onStopClick={(loc) => { flyTo(loc); setSelectedId(loc.id); }}
+        />
+      )}
 
       {/* ── Map ───────────────────────────────────────────────── */}
       <div style={{ position: "relative", marginBottom: 12 }}>

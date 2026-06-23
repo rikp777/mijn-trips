@@ -1,4 +1,4 @@
-import { useEffect, useRef, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { font, colors } from "./constants/theme";
 import { useToast } from "./hooks/useToast";
 import { useBreakpoint } from "./hooks/useBreakpoint";
@@ -20,7 +20,7 @@ const MapView = lazy(() => import("./components/MapView"));
 
 // ── Tab content — defined OUTSIDE App so React doesn't remount on every render
 
-function TabContent({ tab, tripDetail, navigate, showToast, onOpenTrip, setActiveTripId }) {
+function TabContent({ tab, tripDetail, navigate, showToast, onOpenTrip, setActiveTripId, mapFocus }) {
   const { activeTrip, trips } = useTrip();
 
   if (tab === "home") {
@@ -101,7 +101,7 @@ function TabContent({ tab, tripDetail, navigate, showToast, onOpenTrip, setActiv
             key={activeTrip?.id}
             fallback={<p style={{ color: colors.textMuted, textAlign: "center", padding: 40 }}>🗺️ Kaart laden…</p>}
           >
-            <MapView />
+            <MapView focus={mapFocus} />
           </Suspense>
         </div>
       </>
@@ -122,12 +122,6 @@ export default function App() {
   const tab        = params.get("tab") ?? "home";
   const tripDetail = params.get("detail") === "1";
 
-  // Remember the last non-home tab so switching trips can restore it
-  const lastTabRef = useRef(null);
-  useEffect(() => {
-    if (tab !== "home") lastTabRef.current = tab;
-  }, [tab]);
-
   // Bootstrap: set URL on very first visit (no hash)
   useEffect(() => {
     if (!params.has("tab")) {
@@ -143,22 +137,15 @@ export default function App() {
     }
   }, [activeTrip.id, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Tapping Home always shows the trip list, not TripDetailView (clears detail=1)
-  const setTab = (newTab) => navigate({ tab: newTab, ...(newTab === "home" && { detail: null }) });
+  // Home tab: go to TripDetailView if a trip is active, dashboard if not
+  const setTab = (newTab) => navigate({ tab: newTab, ...(newTab === "home" && { detail: activeTrip?.id ? "1" : null }) });
 
-  // When a trip is selected from HomeView: restore last tab if the new trip supports it
-  const handleOpenTrip = (tripId) => {
-    const newTrip = trips.find((t) => t.id === tripId);
-    const allowed = newTrip?.tabs ?? ["home", "journal", "pack", "day", "map"];
-    const last = lastTabRef.current;
-    if (last && allowed.includes(last)) {
-      navigate({ tab: last, detail: null });
-    } else {
-      navigate({ tab: "home", detail: "1" });
-    }
+  // Selecting a trip from the dashboard always opens its detail view
+  const handleOpenTrip = () => {
+    navigate({ tab: "home", detail: "1" });
   };
 
-  const tabProps = { tab, tripDetail, navigate, showToast, onOpenTrip: handleOpenTrip, setActiveTripId };
+  const tabProps = { tab, tripDetail, navigate, showToast, onOpenTrip: handleOpenTrip, setActiveTripId, mapFocus: params.get("_focus") ?? undefined };
 
   if (isDesktop) {
     return (

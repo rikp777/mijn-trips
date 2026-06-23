@@ -14,8 +14,8 @@ export const scheduleTypeColor = {
   travel:  "#94A3B8",
 };
 
-const s = (id, time, emoji, title, desc, type, locationId = null, gear = []) => ({
-  id, time, emoji, title, desc, type, locationId, gear,
+const s = (id, time, emoji, title, desc, type, locationId = null, gear = [], endTime = null) => ({
+  id, time, emoji, title, desc, type, locationId, gear, endTime,
 });
 
 export const days = [
@@ -28,10 +28,10 @@ export const days = [
     emoji: "🚗",
     note: "~780 km · ca. 8 uur rijden vanuit Utrecht. Navigeer naar: Skavenvej 32, 6880 Tarm, DK. Check bandenspanning voor vertrek!",
     slots: [
-      s("d0s1", "07:00", "🚗", "Vertrek Nederland", "Auto laden en op weg! Koffie voor onderweg en bandenspanning gecheckt?", "travel", null, ["d1", "d2", "a1", "a2", "a4"]),
-      s("d0s2", "09:30", "⛽", "Tankstop Duitsland", "Benzine bijvullen richting Hamburg — een stuk goedkoper dan in Denemarken.", "travel"),
-      s("d0s3", "11:00", "🌉", "Grens Denemarken", "Welkom in DK bij Kruså/Flensburg. Tijdzone is gelijk. Let op nieuwe snelheidslimieten!", "travel"),
-      s("d0s4", "12:30", "🍔", "Lunch stop — Jutland", "Pauzeren in Kolding of Vejle. Nog ~130 km en ~1,5 uur rijden.", "food"),
+      s("d0s1", "07:00", "🚗", "Vertrek Nederland", "Auto laden en op weg! Koffie voor onderweg en bandenspanning gecheckt?", "travel", "home", ["d1", "d2", "a1", "a2", "a4"]),
+      s("d0s2", "09:30", "⛽", "Tankstop Duitsland", "Benzine bijvullen richting Hamburg — een stuk goedkoper dan in Denemarken.", "travel", "stop-munster", [], "09:50"),
+      s("d0s3", "11:00", "🌉", "Grens Denemarken", "Welkom in DK bij Kruså/Flensburg. Tijdzone is gelijk. Let op nieuwe snelheidslimieten!", "travel", "stop-flensburg", [], "11:10"),
+      s("d0s4", "12:30", "🍔", "Lunch stop — Jutland", "Pauzeren in Kolding of Vejle. Nog ~130 km en ~1,5 uur rijden.", "food", "stop-lunch", [], "13:30"),
       s("d0s5", "15:30", "🏕️", "Aankomst kamp!", "Check-in bij Skaven Strand Camping. Lodge of tipi zoeken en uitpakken.", "travel", "camp"),
       s("d0s6", "17:00", "🚶", "Kamp verkennen", "Bar, sauna, fjord-strand, sanitair bekijken en alvast kennismaken met medekiters.", "free", "camp"),
       s("d0s7", "19:00", "🍽️", "Welkomstdiner", "Eerste 3-gangen diner met de hele groep. Even bijkomen en kennismaken!", "food", "camp"),
@@ -173,10 +173,10 @@ export const days = [
       s("d7s1", "07:00", "🍳", "Vroeg ontbijt", "Vroeg opstaan voor de terugreis. Snel maar goed ontbijt aan de bar.", "food", "camp"),
       s("d7s2", "08:00", "🧹", "Inpakken & schoonmaken", "Lodge of tipi netjes achterlaten zoals je het aantrof.", "free", "camp"),
       s("d7s3", "09:30", "🏕️", "Check-out voor 10:00", "Sleutel inleveren en laatste groetjes. Foto's maken bij het kamp!", "travel", "camp"),
-      s("d7s4", "10:00", "🚗", "Op weg naar Nederland!", "Navigeer richting huis. ~780 km · ca. 8 uur rijden.", "travel", null, ["d1", "a1", "a2"]),
-      s("d7s5", "12:30", "🍔", "Lunch stop", "Pauzeren en bijtanken ergens in Jutland of Noord-Duitsland.", "food"),
-      s("d7s6", "14:00", "🌉", "Grens terug", "Terug over de grens richting Nederland via Flensburg.", "travel"),
-      s("d7s7", "18:00", "🏠", "Thuiskomst!", "Welkom thuis — met een kitesurf-diploma en een hoofd vol verhalen. 🪁", "travel"),
+      s("d7s4", "10:00", "🚗", "Op weg naar Nederland!", "Navigeer richting huis. ~780 km · ca. 8 uur rijden.", "travel", "camp", ["d1", "a1", "a2"]),
+      s("d7s5", "12:30", "🍔", "Lunch stop", "Pauzeren en bijtanken ergens in Jutland of Noord-Duitsland.", "food", "stop-lunch"),
+      s("d7s6", "14:00", "🌉", "Grens terug", "Terug over de grens richting Nederland via Flensburg.", "travel", "stop-flensburg"),
+      s("d7s7", "18:00", "🏠", "Thuiskomst!", "Welkom thuis — met een kitesurf-diploma en een hoofd vol verhalen. 🪁", "travel", "home"),
     ],
   },
 ];

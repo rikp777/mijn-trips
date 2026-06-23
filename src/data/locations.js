@@ -7,6 +7,23 @@
 
 export const FJORD_CENTER = { lat: 53.8, lon: 7.5, zoom: 6 };
 
+// Driving day stops — outbound (Za 4 juli) and return (Za 11 juli)
+export const DRIVE_STOPS = [
+  { id: "home",           time: "07:00", endTime: null,    emoji: "🏠", label: "Vertrek Panningen",           detail: "km 0  ·  vertrekpunt",             note: null,                                         lat: 51.3288, lon:  5.9819 },
+  { id: "stop-munster",   time: "09:30", endTime: "09:50", emoji: "⛽", label: "Tankstop — Münster (A1)",     detail: "~195 km  ·  ~2.5u rijden",         note: "Goedkoper dan NL — bijvullen!",               lat: 51.9822, lon:  7.7754 },
+  { id: "stop-flensburg", time: "11:00", endTime: "11:10", emoji: "🌉", label: "Grens + tank — Flensburg",   detail: "~665 km  ·  ~4u",                  note: "⚠️ Laatste goedkope benzine — vol tanken!",   lat: 54.7778, lon:  9.4151 },
+  { id: "stop-lunch",     time: "12:30", endTime: "13:30", emoji: "🍔", label: "Lunch — Vejle/Kolding",      detail: "~750 km  ·  ~5.5u",                note: "Nog ~130 km en ~1.5u tot het kamp.",          lat: 55.7256, lon:  9.5380 },
+  { id: "camp",           time: "15:30", endTime: null,    emoji: "🏕️", label: "Aankomst Kamp!",             detail: "~914 km  ·  ~8.5u rijden",         note: "Navigeer naar 'Skaven Strand Put & Take' · parkeren aan de vijver",  lat: 55.8928, lon:  8.3693 },
+];
+
+export const RETURN_DRIVE_STOPS = [
+  { id: "camp",           time: "10:00", endTime: null,    emoji: "🏕️", label: "Vertrek Kamp",               detail: "km 0  ·  check-out voor 10:00",    note: null,                                         lat: 55.8928, lon:  8.3693 },
+  { id: "stop-lunch",     time: "12:30", endTime: "13:30", emoji: "🍔", label: "Lunch — Vejle/Kolding",      detail: "~165 km  ·  ~2.5u rijden",         note: "Goed moment om bij te tanken in DK.",         lat: 55.7256, lon:  9.5380 },
+  { id: "stop-flensburg", time: "14:00", endTime: "14:15", emoji: "🌉", label: "Grens terug — Flensburg",   detail: "~250 km  ·  ~3.5u",                note: "Welkom terug in Duitsland!",                  lat: 54.7778, lon:  9.4151 },
+  { id: "stop-munster",   time: "16:30", endTime: "16:50", emoji: "☕", label: "Pauze — Münster (A1)",       detail: "~515 km  ·  ~6.5u",                note: "Koffie, toilet, uitrekken.",                  lat: 51.9822, lon:  7.7754 },
+  { id: "home",           time: "18:00", endTime: null,    emoji: "🏠", label: "Thuiskomst!",                detail: "~914 km  ·  ~8u rijden",           note: "Welkom thuis — met een kitesurf-diploma! 🪁", lat: 51.3288, lon:  5.9819 },
+];
+
 // Route line: exact stop coordinates are used as waypoints so the line passes through them
 export const ROUTE_STOPS = [
   { lat: 51.3288, lon:  5.9819 }, // Panningen
@@ -68,8 +85,8 @@ export const locations = [
     name: "Ripstar Kitecamp — Skaven Strand",
     emoji: "🏕️",
     category: "camp",
-    lat: 55.89222,
-    lon: 8.36444,
+    lat: 55.8928,
+    lon: 8.3693,
     driveMin: null,
     desc: "Skaven Strand Put & Take, Fiskesøvej 10. Navigeer op naam 'Skaven Strand Put & Take' — het Ripstar-terrein zit NIET bij de campingingang. Parkeren aan de vijver.",
   }),
@@ -146,6 +163,15 @@ export const locations = [
     lat: 53.4724, lon: 9.8479,
     stop: "~502 km · ~5u rijden · TANK VERPLICHT",
     desc: "Middagpauze + verplichte tankstop. Ford Puma: ~32.6L verbruikt, nog maar ~15L over (~230 km). Dit is NIET genoeg voor de rest van de rit (405 km). Vol tanken! Deens benzine is ~20ct/L duurder. Gebruik 95 E10 (benzine).",
+  }),
+  make({
+    id: "stop-lunch",
+    name: "Lunch stop — Vejle/Kolding",
+    emoji: "🍔",
+    category: "reststop",
+    lat: 55.7256, lon: 9.5380,
+    stop: "~750 km · ~5.5u rijden · LUNCH",
+    desc: "Goede pauzeplek halverwege Jutland. McDonald's, Burger King of bakkerij bij het tankstation. Nog ~130 km en ~1.5u tot het kamp.",
   }),
   make({
     id: "stop-flensburg",

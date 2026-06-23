@@ -55,11 +55,12 @@ export function buildTempBars(values, range) {
  * barPct drives a mini inline bar giving visual weight to each row.
  * Hovering a row expands extra items inline (level 2 detail).
  */
-function SparkTooltip({ title, rows, anchor, onEnter, onLeave }) {
+function SparkTooltip({ title, meta, rows, anchor, onEnter, onLeave }) {
   const [expandedRow, setExpandedRow] = useState(null);
 
   const above = anchor.bottom + 260 > window.innerHeight;
-  const left = Math.min(Math.max(8, anchor.left), window.innerWidth - 224);
+  const left = Math.min(Math.max(8, anchor.left), window.innerWidth - 230);
+  const caretX = Math.max(12, Math.min(anchor.left + anchor.width / 2 - left - 6, 202));
 
   return createPortal(
     <div
@@ -68,14 +69,14 @@ function SparkTooltip({ title, rows, anchor, onEnter, onLeave }) {
         zIndex: 9999,
         left,
         ...(above
-          ? { bottom: window.innerHeight - anchor.top + 8 }
-          : { top: anchor.bottom + 8 }),
+          ? { bottom: window.innerHeight - anchor.top + 10 }
+          : { top: anchor.bottom + 10 }),
         background: "#0A1628",
         border: `1px solid ${colors.surfaceBorder}`,
         borderRadius: 12,
         padding: "10px 12px",
-        minWidth: 170,
-        maxWidth: 224,
+        minWidth: 180,
+        maxWidth: 230,
         maxHeight: 260,
         overflowY: "auto",
         boxShadow: "0 12px 40px rgba(0,0,0,0.65)",
@@ -89,23 +90,36 @@ function SparkTooltip({ title, rows, anchor, onEnter, onLeave }) {
     >
       <style>{`
         @keyframes sparkTooltipIn {
-          from { opacity: 0; transform: translateY(4px); }
-          to   { opacity: 1; transform: translateY(0);   }
+          from { opacity: 0; transform: translateY(${above ? "-" : ""}4px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
-      {title && (
-        <div style={{
-          fontWeight: 700, fontSize: 11, marginBottom: 8,
-          paddingBottom: 7, borderBottom: `1px solid ${colors.surfaceBorder}`,
-          color: colors.text,
-        }}>
-          {title}
-        </div>
-      )}
+      {/* Caret pointing at the bars */}
+      <div style={{
+        position: "absolute",
+        ...(above ? { bottom: -6 } : { top: -6 }),
+        left: caretX,
+        width: 0, height: 0,
+        borderLeft: "6px solid transparent",
+        borderRight: "6px solid transparent",
+        ...(above
+          ? { borderTop: `6px solid ${colors.surfaceBorder}` }
+          : { borderBottom: `6px solid ${colors.surfaceBorder}` }),
+      }} />
+
+      {/* Title + meta context */}
+      <div style={{
+        marginBottom: 8, paddingBottom: 7,
+        borderBottom: `1px solid ${colors.surfaceBorder}`,
+      }}>
+        <div style={{ fontWeight: 700, fontSize: 11 }}>{title}</div>
+        {meta && <div style={{ fontSize: 9, color: colors.textMuted, marginTop: 2 }}>{meta}</div>}
+      </div>
 
       {rows.map((row, i) => {
         const isExpanded = expandedRow === i;
+        const hasExtra = row.extra?.length > 0;
         return (
           <div
             key={i}
@@ -119,7 +133,7 @@ function SparkTooltip({ title, rows, anchor, onEnter, onLeave }) {
               transition: "background 0.1s",
             }}
           >
-            {/* Row: label · mini bar · value */}
+            {/* Row: label · mini bar · value · expand hint */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{
                 color: colors.textMuted, fontSize: 10,
@@ -127,10 +141,10 @@ function SparkTooltip({ title, rows, anchor, onEnter, onLeave }) {
               }}>
                 {row.label}
               </span>
-              {/* mini inline bar */}
+              {/* mini inline bar — 5px for visibility */}
               <div style={{
-                flex: 1, height: 3, borderRadius: 2,
-                background: `${colors.surfaceBorder}40`, overflow: "hidden",
+                flex: 1, height: 5, borderRadius: 3,
+                background: `${colors.surfaceBorder}50`, overflow: "hidden",
               }}>
                 <div style={{
                   width: `${row.barPct ?? 0}%`,
@@ -142,16 +156,23 @@ function SparkTooltip({ title, rows, anchor, onEnter, onLeave }) {
               </div>
               <span style={{
                 fontWeight: 700, fontSize: 11, color: row.color ?? colors.text,
-                flexShrink: 0, minWidth: 32, textAlign: "right",
+                flexShrink: 0, minWidth: 36, textAlign: "right",
               }}>
                 {row.primary}
               </span>
+              {hasExtra && (
+                <span style={{
+                  fontSize: 9, color: colors.textMuted,
+                  opacity: isExpanded ? 0 : 0.45,
+                  flexShrink: 0, transition: "opacity 0.1s",
+                }}>›</span>
+              )}
             </div>
 
             {/* Level 2: expanded extra details on row hover */}
-            {isExpanded && row.extra?.length > 0 && (
+            {isExpanded && hasExtra && (
               <div style={{
-                marginTop: 5, paddingTop: 5,
+                marginTop: 4, paddingTop: 4, paddingLeft: 42,
                 borderTop: `1px solid ${colors.surfaceBorder}`,
                 display: "flex", gap: 10, flexWrap: "wrap",
               }}>
@@ -190,9 +211,11 @@ export default function SparkBars({
   bars,
   height = 8,
   barWidth = 3,
+  fillWidth = false,
   showLabels = false,
   startH,
   tooltip,
+  highlightRange, // { start, end } bar indices (inclusive) — dims everything outside
 }) {
   const containerRef = useRef(null);
   const [anchor, setAnchor] = useState(null);
@@ -220,22 +243,26 @@ export default function SparkBars({
       ref={containerRef}
       onMouseEnter={tooltip ? show : undefined}
       onMouseLeave={tooltip ? scheduleHide : undefined}
-      style={{ display: "inline-block" }}
+      style={fillWidth ? { display: "block", width: "100%" } : { display: "inline-block" }}
     >
-      <div style={{ display: "flex", gap: 1, height, alignItems: "flex-end" }}>
-        {bars.map((bar, i) => (
-          <div
-            key={i}
-            style={{
-              width: barWidth,
-              flexShrink: 0,
-              height: bar.height > 0 ? `${bar.height}%` : 0,
-              minHeight: bar.minHeight > 0 ? bar.minHeight : undefined,
-              background: bar.color,
-              borderRadius: "1px 1px 0 0",
-            }}
-          />
-        ))}
+      <div style={{ display: "flex", gap: fillWidth ? 0 : 1, height, alignItems: "flex-end" }}>
+        {bars.map((bar, i) => {
+          const lit = !highlightRange || (i >= highlightRange.start && i <= highlightRange.end);
+          return (
+            <div
+              key={i}
+              style={{
+                ...(fillWidth ? { flex: 1 } : { width: barWidth, flexShrink: 0 }),
+                height: bar.height > 0 ? `${bar.height}%` : 0,
+                minHeight: bar.minHeight > 0 ? bar.minHeight : undefined,
+                background: bar.color,
+                borderRadius: "1px 1px 0 0",
+                opacity: lit ? 1 : 0.15,
+                transition: "opacity 0.2s",
+              }}
+            />
+          );
+        })}
       </div>
       {showLabels && startH != null && (
         <div style={{ display: "flex", gap: 1, marginTop: 1 }}>
@@ -252,6 +279,7 @@ export default function SparkBars({
       {anchor && tooltip && (
         <SparkTooltip
           title={tooltip.title}
+          meta={tooltip.meta}
           rows={tooltip.rows}
           anchor={anchor}
           onEnter={cancelHide}

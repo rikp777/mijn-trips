@@ -33,7 +33,7 @@ const ROUTES = [
       { lat: 55.4945, lon:  9.4718 }, // Kolding
       { lat: 55.7256, lon:  9.5380 }, // Vejle
       { lat: 56.1342, lon:  8.9798 }, // Herning
-      { lat: 55.8922, lon:  8.3644 }, // Ringkøbing camp
+      { lat: 55.8928, lon:  8.3693 }, // Ringkøbing camp
     ],
   },
   {
@@ -42,7 +42,7 @@ const ROUTES = [
     maxPoints: 800,
     note: 'Camp → Stauning Airport → Ringkøbing (DK trip bike day)',
     stops: [
-      { lat: 55.89222, lon: 8.36444 }, // Ripstar kamp
+      { lat: 55.8928,  lon: 8.3693  }, // Ripstar kamp
       { lat: 55.9923,  lon: 8.3463  }, // Stauning Airport
       { lat: 56.0939,  lon: 8.2446  }, // Ringkøbing centrum
     ],

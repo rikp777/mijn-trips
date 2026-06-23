@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { colors } from "../constants/theme";
-import { useWeatherForecast, sessionVerdict } from "../hooks/useWeatherForecast";
+import { useWeatherForecast, sessionVerdict, windVerdict } from "../hooks/useWeatherForecast";
 import { useTrip } from "../context/TripContext";
 import PageHero from "../components/PageHero";
 import WindWidget from "../components/WindWidget";
@@ -93,6 +93,49 @@ function CountdownStrip({ targetDate, label, color }) {
   );
 }
 
+// ── Packing reminder row ─────────────────────────────────────────
+
+function PackingRow({ startDate }) {
+  // Show 3 days before departure; disappears when trip starts
+  const packDate = (() => {
+    const d = new Date(startDate + "T00:00:00");
+    d.setDate(d.getDate() - 2);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const today = now.toISOString().slice(0, 10);
+  if (today >= startDate || today > packDate) return null; // trip started or pack day passed
+
+  const daysUntilPack = Math.round((new Date(packDate + "T00:00:00") - now) / 86400000);
+  const packDow = NL_DAYS[new Date(packDate + "T12:00:00").getDay()];
+  const packMon = NL_MONTHS[new Date(packDate + "T12:00:00").getMonth()];
+  const packDay = new Date(packDate + "T12:00:00").getDate();
+  const isToday = today === packDate;
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "7px 14px 8px",
+      borderTop: `1px solid ${colors.surfaceBorder}`,
+      background: isToday ? "rgba(245,158,11,0.08)" : "transparent",
+    }}>
+      <span style={{ fontSize: 14 }}>📦</span>
+      <div style={{ flex: 1 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: isToday ? "#F59E0B" : colors.text }}>
+          {isToday ? "Vandaag inpakken!" : `Inpakken · ${packDow} ${packDay} ${packMon}`}
+        </span>
+        {!isToday && (
+          <span style={{ fontSize: 11, color: colors.textMuted, marginLeft: 6 }}>
+            over {daysUntilPack} {daysUntilPack === 1 ? "dag" : "dagen"}
+          </span>
+        )}
+      </div>
+      <span style={{ fontSize: 10, color: colors.textMuted, fontWeight: 600 }}>voor vertrek</span>
+    </div>
+  );
+}
+
 // ── Trip overview card ───────────────────────────────────────────
 
 const NL_MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
@@ -178,6 +221,9 @@ function TripOverviewCard({ trip, isActive, onSelect }) {
         <CountdownStrip targetDate={trip.endDate} label="tot thuiskomst" color="#34D399" />
       )}
 
+      {/* Packing reminder — visible in the days leading up to departure */}
+      {phase.phase === "before" && <PackingRow startDate={trip.startDate} />}
+
       {/* Weather content */}
       {status === "loading" && (
         <div style={{ padding: "0 14px 12px", fontSize: 12, color: colors.textMuted }}>
@@ -237,6 +283,25 @@ function TripOverviewCard({ trip, isActive, onSelect }) {
                     {NL_DAYS[d.getDay()]}
                   </span>
                 </div>
+              );
+            })}
+          </div>
+
+          {/* Wind kn sparkline strip */}
+          <div style={{ display: "flex", gap: 3, padding: "3px 14px 6px", height: 22, alignItems: "flex-end" }}>
+            {tripDates.map((date) => {
+              const day = dayMap[date];
+              if (!day) return <div key={date} style={{ flex: 1, height: 2, background: "rgba(255,255,255,0.07)", borderRadius: 1 }} />;
+              const kn  = day.windKitingAvg || 0;
+              const px  = Math.max(2, Math.round((Math.min(kn, 25) / 25) * 16));
+              const v   = windVerdict(kn);
+              const sel = activeDate === date;
+              return (
+                <div
+                  key={date}
+                  onClick={(e) => handleBubble(date, e)}
+                  style={{ flex: 1, height: px, background: sel ? v.color : `${v.color}70`, borderRadius: "2px 2px 0 0", cursor: "pointer" }}
+                />
               );
             })}
           </div>
